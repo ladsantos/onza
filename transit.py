@@ -26,9 +26,10 @@ class Grid(object):
         return disk
 
 
-g = Grid(size=201)
-star = g.draw_disk([100, 100], 100)
-planet = g.draw_disk([50, 100], 20, value=0.25)
-transit = star - planet
-plt.imshow(transit)
-plt.show()
+if __name__ == "__main__":
+    g = Grid(size=2001)
+    star = g.draw_disk([1000, 1000], 1000)
+    planet = g.draw_disk([500, 1000], 201)
+    transit = star - planet
+    plt.imshow(transit)
+    plt.show()
