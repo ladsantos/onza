@@ -99,6 +99,7 @@ class Absorption(object):
         # Count where particles are inside the cell and inside the
         # designated velocity range
         n_c_v = 0
+        # ``itertools.product`` is used to avoid nested loops
         for x, y, vz in product(self.pos[0, :], self.pos[1, :], self.vel[2, :]):
             if i0 < x < i1 and j0 < y < j1 and v0 < vz < v1:
                 n_c_v += 1
@@ -126,21 +127,20 @@ class Absorption(object):
 
         # Compute the contribution of broad absorption for each velocity bin
         for i in range(len(self.vel_bins) - 1):
-            # Sweep the whole velocity spectrum
-            cur_vel = self.vel_bins[i] + self.res_element / 2
-            cur_vel_range = [self.vel_bins[i], self.vel_bins[i + 1]]
-            t0 = self.sigma_v_0 * self.num_particles(cell_indexes,
-                                                     cur_vel_range)
-            t1 = self.damp_const / 4 / np.pi ** 2 * self.lambda_0 ** 2
-            t2 = (cur_vel - ref_vel) ** (-2)
-            tau_broad.append(t0 * t1 * t2)
-        tau_broad = np.array(tau_broad)
-
-        # Remove the bin corresponding to the reference velocity
-        tau_broad = np.delete(tau_broad, k, 0)
-        ref_num_e = self.num_particles(cell_indexes, ref_vel_range)
+            if i == k:
+                pass
+            else:
+                # Sweep the whole velocity spectrum
+                cur_vel = self.vel_bins[i] + self.res_element / 2
+                cur_vel_range = [self.vel_bins[i], self.vel_bins[i + 1]]
+                t0 = self.sigma_v_0 * self.num_particles(cell_indexes,
+                                                         cur_vel_range)
+                t1 = self.damp_const / 4 / np.pi ** 2 * self.lambda_0 ** 2
+                t2 = (cur_vel - ref_vel) ** (-2)
+                tau_broad.append(t0 * t1 * t2)
 
         # Finally compute the total optical depth
-        tau = self.tau_line(ref_num_e) + np.sum(tau_broad)
+        ref_num_e = self.num_particles(cell_indexes, ref_vel_range)
+        tau = self.tau_line(ref_num_e) + sum(tau_broad)
 
         return tau
