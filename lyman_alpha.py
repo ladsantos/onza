@@ -104,26 +104,17 @@ class Absorption(object):
 
     # Compute the number of hydrogen particles inside a cell within a given
     # velocity range in the z-axis
-    def num_particles(self, cell_indexes, velocity_range):
+    def num_particles(self, cell_indexes, velocity_index):
         """
 
         Args:
-            cell_indexes: In the form [[i0, j0], [i1, j1]]
-            velocity_range: In the form [v0, v1]
+            cell_indexes: In the form [i, j]
+            velocity_index: int
 
         Returns:
 
         """
-        i0, j0, i1, j1 = cell_indexes[0][0], cell_indexes[0][1], \
-            cell_indexes[1][0], cell_indexes[1][1]
-        v0, v1 = velocity_range[0], velocity_range[1]
-        # Count where particles are inside the cell and inside the
-        # designated velocity range
-        n_c_v = 0
-        # ``itertools.product`` is used to avoid nested loops
-        for x, y, vz in product(self.pos[0, :], self.pos[1, :], self.vel[2, :]):
-            if i0 < x < i1 and j0 < y < j1 and v0 < vz < v1:
-                n_c_v += 1
+        n_c_v = self.hist[cell_indexes[0], cell_indexes[1], velocity_index]
         return n_c_v
 
     # The total optical depth
@@ -131,20 +122,20 @@ class Absorption(object):
         """
 
         Args:
-            cell_indexes: In the form [[i0, j0], [i1, j1]]
+            cell_indexes: In the form [i, j]
             velocity_bin: Index of the bin (left side) of the desired velocity
                 range in ``self.vel_bins``
 
         Returns:
 
         """
+
         k = velocity_bin
         tau_broad = []
 
         # The reference velocity (the part of the spectrum where we want to
         # compute the optical depth, in velocity space)
         ref_vel = (self.vel_bins[k] + self.vel_bins[k + 1]) / 2
-        ref_vel_range = [self.vel_bins[k], self.vel_bins[k + 1]]
 
         # Compute the contribution of broad absorption for each velocity bin
         for i in range(len(self.vel_bins) - 1):
@@ -153,15 +144,13 @@ class Absorption(object):
             else:
                 # Sweep the whole velocity spectrum
                 cur_vel = self.vel_bins[i] + self.res_element / 2
-                cur_vel_range = [self.vel_bins[i], self.vel_bins[i + 1]]
-                t0 = self.sigma_v_0 * self.num_particles(cell_indexes,
-                                                         cur_vel_range)
+                t0 = self.sigma_v_0 * self.num_particles(cell_indexes, i)
                 t1 = self.damp_const / 4 / np.pi ** 2 * self.lambda_0 ** 2
                 t2 = (cur_vel - ref_vel) ** (-2)
                 tau_broad.append(t0 * t1 * t2)
 
         # Finally compute the total optical depth
-        ref_num_e = self.num_particles(cell_indexes, ref_vel_range)
+        ref_num_e = self.num_particles(cell_indexes, k)
         tau = self.tau_line(ref_num_e) + sum(tau_broad)
 
         return tau
