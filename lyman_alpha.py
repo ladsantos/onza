@@ -1,5 +1,6 @@
 import numpy as np
 import astropy.units as u
+import astropy.constants as c
 from itertools import product
 
 
@@ -19,15 +20,27 @@ class Absorption(object):
     """
     def __init__(self, grid, positions, velocities, cell_size=10,
                  stellar_radius=1 * u.solRad, res_element=20 * u.km / u.s,
-                 vel_range=[-300, 300] * u.km / u.s):
+                 vel_range=[-300, 300] * u.km / u.s, atoms_per_part=1E6):
         self.grid = grid
         self.g_size = len(grid)
+        self.px_size = stellar_radius / self.g_size
         self.pos_starcentric = (positions / stellar_radius).decompose()
         self.vel_starcentric = velocities   # Star-centric velocities
+
         # Computing the cell bins
         self.c_bins = np.arange(0, self.g_size, cell_size)
         if self.c_bins[-1] < self.g_size - 1:
             self.c_bins[-1] = self.g_size - 1
+
+        # Computing the areas of each cell. TODO: Improve this, looks horrible!
+        self.c_area = []
+        for i in range(len(self.c_bins) - 1):
+            areas = []
+            for j in range(len(self.c_bins) - 1):
+                areas.append((self.c_bins[i + 1] - self.c_bins[i]) ** 2)
+            self.c_area.append(areas)
+        self.c_area = np.array(self.c_area) * self.px_size ** 2
+
         # Velocity bins are used to compute the spectral absorption in bins
         # of velocity space defined by the spectral resolution element
         self.res_element = res_element
@@ -35,6 +48,13 @@ class Absorption(object):
                 (vel_range[0] - res_element / 2).to(u.km / u.s).value,
                 (vel_range[1] + res_element * 3 / 2).to(u.km / u.s).value,
                 res_element.to(u.km / u.s).value) * u.km / u.s
+
+        # The Doppler shift (reference velocities)
+        self.doppler_shift = []
+        for i in range(len(self.vel_bins) - 1):
+            self.doppler_shift.append(((self.vel_bins[i] +
+                                       self.vel_bins[i + 1]) / 2).value)
+        self.doppler_shift = np.array(self.doppler_shift) * u.km / u.s
 
         # Physical constants
         self.damp_const = 6.27E8 / u.s
@@ -47,7 +67,6 @@ class Absorption(object):
         self.pos[0] += self.pos_starcentric[1].value + self.g_size // 2
         self.pos[1] += self.pos_starcentric[0].value + self.g_size // 2
         self.pos[2] += self.pos_starcentric[2].value
-        #self.pos = (self.pos / stellar_radius).decompose()
         self.vel = np.zeros_like(self.vel_starcentric)
         self.vel[0] += self.vel_starcentric[1]
         self.vel[1] += self.vel_starcentric[0]
@@ -55,6 +74,9 @@ class Absorption(object):
 
         # Initiating useful global variables
         self.hist = None
+        self.wavelength = self.doppler_shift / c.c * self.lambda_0 + \
+            self.lambda_0
+        self.flux = None
 
     # Compute histogram of particles in cells and velocity space
     def compute_hist(self):
@@ -115,7 +137,8 @@ class Absorption(object):
 
         """
         n_c_v = self.hist[cell_indexes[0], cell_indexes[1], velocity_index]
-        return n_c_v
+        return (n_c_v / self.c_area[cell_indexes[0],
+                                    cell_indexes[1]]).decompose()
 
     # The total optical depth
     def tau(self, cell_indexes, velocity_bin):
@@ -154,3 +177,26 @@ class Absorption(object):
         tau = self.tau_line(ref_num_e) + sum(tau_broad)
 
         return tau
+
+    # Compute absorption spectrum
+    def compute_abs(self):
+        """
+
+        Returns:
+
+        """
+        self.flux = []
+
+        # For each wavelength, compute the absorption coefficient
+        for k in range(len(self.doppler_shift)):
+            coeff = 0
+            # Sum for each cell
+            cells = np.arange(len(self.c_bins) - 1)
+            for i, j in product(cells, cells):
+                cell_flux = np.sum(
+                        self.grid[self.c_bins[i]:self.c_bins[i + 1],
+                        self.c_bins[j]:self.c_bins[j + 1]])
+                coeff += np.exp(-self.tau([i, j], k).value) * cell_flux
+            coeff = coeff / len(cells) ** 2
+            self.flux.append(coeff)
+        self.flux = np.array(self.flux)

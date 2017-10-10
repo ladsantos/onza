@@ -23,7 +23,7 @@ class Grid(object):
         draw = ImageDraw.Draw(image)
         draw.ellipse([top_left, bottom_right], outline=1, fill=1)
         disk = np.reshape(np.array(list(image.getdata())), self.shape) * value
-        return disk
+        return disk / np.sum(disk)
 
 
 if __name__ == "__main__":
