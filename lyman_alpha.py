@@ -24,12 +24,13 @@ class Absorption(object):
         self.g_size = len(grid)
         self.pos_starcentric = (positions / stellar_radius).decompose()
         self.vel_starcentric = velocities   # Star-centric velocities
-        self.res_element = res_element
-        self.c_size = cell_size
-        self.c_step = self.g_size // cell_size  # Cell step size
-        self.c_last_step = self.c_step + self.g_size % cell_size
+        # Computing the cell bins
+        self.c_bins = np.arange(0, self.g_size, cell_size)
+        if self.c_bins[-1] < self.g_size - 1:
+            self.c_bins[-1] = self.g_size - 1
         # Velocity bins are used to compute the spectral absorption in bins
         # of velocity space defined by the spectral resolution element
+        self.res_element = res_element
         self.vel_bins = np.arange(
                 (vel_range[0] - res_element / 2).to(u.km / u.s).value,
                 (vel_range[1] + res_element * 3 / 2).to(u.km / u.s).value,
@@ -51,6 +52,26 @@ class Absorption(object):
         self.vel[0] += self.vel_starcentric[1]
         self.vel[1] += self.vel_starcentric[0]
         self.vel[2] += self.vel_starcentric[2]
+
+        # Initiating useful global variables
+        self.hist = None
+
+    # Compute histogram of particles in cells and velocity space
+    def compute_hist(self):
+        """
+        Compute histogram of particles (bins are defined by the cells and
+        spectral resolution).
+
+        Returns:
+
+        """
+        # First convert velocity arrays to unit-less arrays
+        vel_arr = self.vel[2].to(u.km / u.s).value
+        vel_bins = self.vel_bins.to(u.km / u.s).value
+        sample = np.array([self.pos[0].value, self.pos[1].value, vel_arr]).T
+        hist, bins = np.histogramdd(sample, bins=[self.c_bins, self.c_bins,
+                                                  vel_bins])
+        self.hist = hist
 
     # Broad absorption contribution
     def tau_broad(self, vel_i, vel_j, num_e):
