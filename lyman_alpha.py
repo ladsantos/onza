@@ -76,6 +76,8 @@ class Absorption(object):
         self.wavelength = (self.doppler_shift / self.c * self.lambda_0 +
                            self.lambda_0) * 1E13    # Angstrom
         self.flux = None
+        self.tau_l = []
+        self.tau_t = []
 
     # Compute histogram of particles in cells and velocity space
     def compute_hist(self):
@@ -94,22 +96,6 @@ class Absorption(object):
                                                       vel_bins])
         self.hist = hist
 
-    # Broad absorption contribution
-    def tau_broad(self, vel_i, vel_j, num_e):
-        """
-
-        Args:
-            vel_i: Reference velocity
-            vel_j: Current velocity
-            num_e: Number of particles with current velocity
-
-        Returns:
-            tau:
-        """
-        t_broad = self.sigma_v_0 * num_e * self.damp_const / 4 / np.pi ** 2 * \
-            (self.lambda_0 / (vel_j - vel_i)) ** 2
-        return t_broad
-
     # Narrow absorption contribution
     def tau_line(self, num_e):
         """
@@ -121,6 +107,7 @@ class Absorption(object):
 
         """
         t_line = self.sigma_v_0 * num_e * self.lambda_0 / self.res_element
+        self.tau_l.append(t_line)
         return t_line
 
     # Compute the number of hydrogen particles inside a cell within a given
@@ -175,7 +162,7 @@ class Absorption(object):
         # Finally compute the total optical depth
         ref_num_e = self.num_particles(cell_indexes, k)
         tau = self.tau_line(ref_num_e) + np.sum(tau_broad)
-
+        self.tau_t.append(tau)
         return tau
 
     # Compute absorption spectrum
@@ -193,9 +180,21 @@ class Absorption(object):
             # Sum for each cell
             cells = np.arange(len(self.c_bins) - 1)
             for i, j in product(cells, cells):
-                cell_flux = np.sum(
-                        self.grid[self.c_bins[i]:self.c_bins[i + 1],
-                        self.c_bins[j]:self.c_bins[j + 1]])
+
+                # The last column and lines have to be added manually
+                if i == cells[-1]:
+                    a = 1.0
+                    cell_flux = np.sum(
+                            self.grid[self.c_bins[i]:self.c_bins[i + 1] + 1,
+                            self.c_bins[j]:self.c_bins[j + 1]])
+                elif j == cells[-1]:
+                    cell_flux = np.sum(
+                            self.grid[self.c_bins[i]:self.c_bins[i + 1],
+                            self.c_bins[j]:self.c_bins[j + 1] + 1])
+                else:
+                    cell_flux = np.sum(
+                            self.grid[self.c_bins[i]:self.c_bins[i + 1],
+                            self.c_bins[j]:self.c_bins[j + 1]])
                 exponent = np.exp(-self.tau([i, j], k))
                 coeff += exponent * cell_flux
             #coeff = coeff / len(cells) ** 2
