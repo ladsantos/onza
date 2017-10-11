@@ -1,6 +1,7 @@
 import numpy as np
 import astropy.units as u
 import astropy.constants as c
+import multiprocessing as mp
 from itertools import product
 
 
@@ -20,9 +21,10 @@ class Absorption(object):
     """
     def __init__(self, grid, positions, velocities, cell_size=10,
                  stellar_radius=1 * u.solRad, res_element=20 * u.km / u.s,
-                 vel_range=[-300, 300] * u.km / u.s, atoms_per_part=1E6):
+                 vel_range=[-300, 300] * u.km / u.s, atoms_per_part=1E9):
         self.grid = grid
         self.g_size = len(grid)
+        self.part_density = atoms_per_part
         self.px_size = stellar_radius / self.g_size
         self.pos_starcentric = (positions / stellar_radius).decompose()
         self.vel_starcentric = velocities   # Star-centric velocities
@@ -136,7 +138,8 @@ class Absorption(object):
         Returns:
 
         """
-        n_c_v = self.hist[cell_indexes[0], cell_indexes[1], velocity_index]
+        n_c_v = self.hist[cell_indexes[0], cell_indexes[1],
+                          velocity_index] * self.part_density
         return (n_c_v / self.c_area[cell_indexes[0],
                                     cell_indexes[1]]).decompose()
 
@@ -178,8 +181,9 @@ class Absorption(object):
 
         return tau
 
+    '''
     # Compute absorption spectrum
-    def compute_abs(self):
+    def compute_abs(self, k):
         """
 
         Returns:
@@ -199,4 +203,28 @@ class Absorption(object):
                 coeff += np.exp(-self.tau([i, j], k).value) * cell_flux
             coeff = coeff / len(cells) ** 2
             self.flux.append(coeff)
+        self.flux = np.array(self.flux)
+    '''
+
+    def compute_abs(self, k):
+
+        coeff = 0
+        # Sum for each cell
+        cells = np.arange(len(self.c_bins) - 1)
+        for i, j in product(cells, cells):
+            cell_flux = np.sum(
+                    self.grid[self.c_bins[i]:self.c_bins[i + 1],
+                    self.c_bins[j]:self.c_bins[j + 1]])
+            coeff += np.exp(-self.tau([i, j], k).value) * cell_flux
+        coeff = coeff / len(cells) ** 2
+        return coeff
+
+    # Multiprocessing test
+    def test(self):
+
+        # For each wavelength, compute the absorption coefficient
+        self.flux = []
+        pool = mp.Pool(processes=4)
+        k = range(len(self.doppler_shift))
+        self.flux = pool.map(self.compute_abs, k)
         self.flux = np.array(self.flux)
