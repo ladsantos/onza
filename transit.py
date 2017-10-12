@@ -11,25 +11,43 @@ class Grid(object):
         self.grid_size = size
         self.shape = (size, size)
 
-    def draw_disk(self, center, radius, value=1.0):
+    def draw_transit(self, star_center, star_radius, planet_center,
+                     planet_radius, star_value=1.0, planet_value=1.0):
         """
 
         Returns:
 
         """
-        top_left = (center[0] - radius, center[1] - radius)
-        bottom_right = (center[0] + radius, center[1] + radius)
+        # Draw the star
+        top_left = (star_center[0] - star_radius, star_center[1] - star_radius)
+        bottom_right = (star_center[0] + star_radius, star_center[1] +
+                        star_radius)
         image = Image.new('1', self.shape)
         draw = ImageDraw.Draw(image)
         draw.ellipse([top_left, bottom_right], outline=1, fill=1)
-        disk = np.reshape(np.array(list(image.getdata())), self.shape) * value
-        return disk / np.sum(disk)
+        star = np.reshape(np.array(list(image.getdata())), self.shape) * \
+            star_value
+        norm = np.sum(star)  # Normalization factor is the total flux of star
+
+        # Draw the planet
+        top_left = (planet_center[0] - planet_radius,
+                    planet_center[1] - planet_radius)
+        bottom_right = (planet_center[0] + planet_radius,
+                        planet_center[1] + planet_radius)
+        image = Image.new('1', self.shape)
+        draw = ImageDraw.Draw(image)
+        draw.ellipse([top_left, bottom_right], outline=1, fill=1)
+        planet = np.reshape(np.array(list(image.getdata())), self.shape) * \
+            planet_value
+
+        # Returns the image of the transit normalized by the star flux
+        transit = (star - planet) / norm
+        return transit
 
 
 if __name__ == "__main__":
     g = Grid(size=2001)
-    star = g.draw_disk([1000, 1000], 1000)
-    planet = g.draw_disk([500, 1000], 201)
-    transit = star - planet
-    plt.imshow(transit)
+    _transit = g.draw_transit([1000, 1000], 1000, [500, 1000], 201)
+    plt.imshow(_transit)
+    plt.savefig('transit.pdf')
     plt.show()
