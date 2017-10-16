@@ -7,15 +7,30 @@ from itertools import product
 # Lyman-alpha absorption class
 class Absorption(object):
     """
+    Computes the wavelength-dependent Lyman-alpha absorption coefficient for
+    a cloud of neutral hydrogen in front of a star.
 
     Args:
-        grid: Image of transit
-        positions: Positions of particles, in stellar radius
-        velocities: Velocities of particles, in km / s
-        cell_size: Size of cell, in px
-        res_element: Resolution element of the instrument, in km / s
-        vel_range: Range of velocities of the spectrum (not to be confused with
-            the velocities of particles!), in km / s
+
+        grid (`numpy.array`): Two-dimensional image of transit
+
+        positions (`numpy.array`): Positions of particles, in stellar radius.
+            Shape of array must be (3, N), where N is the number of
+            pseudo-particles. Positions in lines 0, 1 and 2 must be x, y and z,
+            respectively.
+
+        velocities (`numpy.array`): Velocities of particles, in km / s. Shape of
+            array must be (3, N), where N is the number of pseudo-particles.
+            Velocities in lines 0, 1 and 2 must be x, y and z, respectively.
+
+        cell_size (`int`): Size of cell, in px. Cells are the regions of the
+            transit image where fluxes are computed. Lower cell sizes will
+            render a finer computation of fluxes.
+
+        res_element (`float`): Resolution element of the spectrum in km / s.
+
+        vel_range (tuple): Range of velocities of the spectrum (not to be
+            confused with the velocities of particles!), in km / s.
     """
     def __init__(self, grid, positions, velocities, cell_size=10,
                  res_element=20, vel_range=(-300, 300), atoms_per_part=1E9):
@@ -47,7 +62,7 @@ class Absorption(object):
                 vel_range[0] - res_element / 2,
                 vel_range[1] + res_element * 3 / 2, res_element)
 
-        # The Doppler shift (reference velocities)
+        # The Doppler shift (reference velocities) and wavelengths
         self.doppler_shift = []
         for i in range(len(self.vel_bins) - 1):
             self.doppler_shift.append((self.vel_bins[i] +
@@ -71,30 +86,17 @@ class Absorption(object):
         self.vel[1] += self.vel_starcentric[0]
         self.vel[2] += self.vel_starcentric[2]
 
+        # Computing the histogram of particles in cells and velocity space
+        self.arr = np.array([self.pos[0], self.pos[1], self.vel[2]]).T
+        self.hist, self.hist_bins = np.histogramdd(sample=self.arr,
+                                                   bins=[self.c_bins,
+                                                         self.c_bins,
+                                                         self.vel_bins])
+
         # Initiating useful global variables
-        self.hist = None
         self.wavelength = (self.doppler_shift / self.c * self.lambda_0 +
-                           self.lambda_0) * 1E13    # Angstrom
+                           self.lambda_0) * 1E13  # Angstrom
         self.flux = None
-        self.tau_l = []
-        self.tau_t = []
-
-    # Compute histogram of particles in cells and velocity space
-    def compute_hist(self):
-        """
-        Compute histogram of particles (bins are defined by the cells and
-        spectral resolution).
-
-        Returns:
-
-        """
-        # First convert velocity arrays to unit-less arrays
-        vel_arr = self.vel[2]
-        vel_bins = self.vel_bins
-        arr = np.array([self.pos[0], self.pos[1], vel_arr]).T
-        hist, bins = np.histogramdd(sample=arr, bins=[self.c_bins, self.c_bins,
-                                                      vel_bins])
-        self.hist = hist
 
     # Narrow absorption contribution
     def tau_line(self, num_e):
@@ -107,7 +109,6 @@ class Absorption(object):
 
         """
         t_line = self.sigma_v_0 * num_e * self.lambda_0 / self.res_element
-        self.tau_l.append(t_line)
         return t_line
 
     # Compute the number of hydrogen particles inside a cell within a given
@@ -162,7 +163,6 @@ class Absorption(object):
         # Finally compute the total optical depth
         ref_num_e = self.num_particles(cell_indexes, k)
         tau = self.tau_line(ref_num_e) + np.sum(tau_broad)
-        self.tau_t.append(tau)
         return tau
 
     # Compute absorption spectrum

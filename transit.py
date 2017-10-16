@@ -23,19 +23,25 @@ class Grid(object):
         positions of the star, the planet and their radii.
 
         Args:
+
             star_center (array-like): Coordinates of the center of the star.
                 The origin is the center of the grid.
+
             star_radius (`int`): Radius of the star in units of grid pixels.
+
             planet_center (array-like): Coordinates of the center of the planet.
                 The origin is the center of the grid.
+
             planet_radius (`int`): Radius of the planet in units of grid pixels.
+
             star_value (`float`): Value of each pixel illuminated by the star.
+
             planet_value (`float`): Value of each pixel obscured by the planet.
 
         Returns:
+
             transit (`numpy.array`): Two-dimensional image of the transit
                 normalized by the total flux of the star (without the planet).
-
         """
         # Draw the star
         top_left = (star_center[0] - star_radius, star_center[1] - star_radius)
