@@ -14,7 +14,7 @@ class Absorption(object):
 
         grid (`numpy.array`): Two-dimensional image of transit
 
-        positions (`numpy.array`): Positions of particles, in stellar radius.
+        positions (`numpy.array`): Positions of particles, in unit of pixels.
             Shape of array must be (3, N), where N is the number of
             pseudo-particles. Positions in lines 0, 1 and 2 must be x, y and z,
             respectively.
@@ -179,11 +179,11 @@ class Absorption(object):
             coeff = 0
             # Sum for each cell
             cells = np.arange(len(self.c_bins) - 1)
+
             for i, j in product(cells, cells):
 
                 # The last column and lines have to be added manually
                 if i == cells[-1]:
-                    a = 1.0
                     cell_flux = np.sum(
                             self.grid[self.c_bins[i]:self.c_bins[i + 1] + 1,
                             self.c_bins[j]:self.c_bins[j + 1]])
@@ -197,7 +197,7 @@ class Absorption(object):
                             self.c_bins[j]:self.c_bins[j + 1]])
                 exponent = np.exp(-self.tau([i, j], k))
                 coeff += exponent * cell_flux
-            #coeff = coeff / len(cells) ** 2
+
             self.flux.append(coeff)
         self.flux = np.array(self.flux)
 
@@ -207,11 +207,23 @@ class Absorption(object):
         # Sum for each cell
         cells = np.arange(len(self.c_bins) - 1)
         for i, j in product(cells, cells):
-            cell_flux = np.sum(
+
+            # The last column and lines have to be added manually
+            if i == cells[-1]:
+                cell_flux = np.sum(
+                    self.grid[self.c_bins[i]:self.c_bins[i + 1] + 1,
+                    self.c_bins[j]:self.c_bins[j + 1]])
+            elif j == cells[-1]:
+                cell_flux = np.sum(
+                    self.grid[self.c_bins[i]:self.c_bins[i + 1],
+                    self.c_bins[j]:self.c_bins[j + 1] + 1])
+            else:
+                cell_flux = np.sum(
                     self.grid[self.c_bins[i]:self.c_bins[i + 1],
                     self.c_bins[j]:self.c_bins[j + 1]])
-            coeff += np.exp(-self.tau([i, j], k)) * cell_flux
-        #coeff = coeff / len(cells) ** 2
+            exponent = np.exp(-self.tau([i, j], k))
+            coeff += exponent * cell_flux
+
         return coeff
 
     # Multiprocessing test
