@@ -1,11 +1,15 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module is used to compute a grid containing drawing of disks of stars,
+planets and pseudo-particle clouds.
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 
-"""
-This module is used to compute a grid containing drawing of disks of stars, 
-planets and pseudo-particle clouds.
-"""
+__all__ = ["Grid"]
 
 
 # The Grid class is used to produce two-dimensional images of a star.

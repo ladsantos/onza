@@ -1,7 +1,17 @@
-from __future__ import division
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+The Lyman-alpha line computation module.
+
+"""
+
+from __future__ import (division, print_function, absolute_import,
+                        unicode_literals)
 import numpy as np
 import multiprocessing as mp
 from itertools import product
+
+__all__ = ["Absorption", "Emission"]
 
 
 # Lyman-alpha absorption class
@@ -239,3 +249,9 @@ class Absorption(object):
         k = range(len(self.doppler_shift))
         self.flux = pool.map(self.compute_abs_mp, k)
         self.flux = np.array(self.flux)
+
+
+# The Lyman-alpha emission class
+class Emission(object):
+    def __init__(self):
+        raise NotImplementedError()
