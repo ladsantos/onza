@@ -23,6 +23,9 @@ class Absorption(object):
             array must be (3, N), where N is the number of pseudo-particles.
             Velocities in lines 0, 1 and 2 must be x, y and z, respectively.
 
+        densities (`numpy.array` or `None`, optional): Column densities of
+            particles. Must have the same shape as `grid`.
+
         cell_size (`int`): Size of cell, in px. Cells are the regions of the
             transit image where fluxes are computed. Lower cell sizes will
             render a finer computation of fluxes.
@@ -32,8 +35,9 @@ class Absorption(object):
         vel_range (tuple): Range of velocities of the spectrum (not to be
             confused with the velocities of particles!), in km / s.
     """
-    def __init__(self, grid, positions, velocities, cell_size=10,
-                 res_element=20, vel_range=(-300, 300), atoms_per_part=1E9):
+    def __init__(self, grid, positions, velocities, densities=None,
+                 cell_size=10, res_element=20, vel_range=(-300, 300),
+                 atoms_per_part=1E9):
         self.grid = grid
         self.g_size = len(grid)
         self.part_density = atoms_per_part
