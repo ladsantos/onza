@@ -8,7 +8,6 @@ The Lyman-alpha line computation module.
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 import numpy as np
-import multiprocessing as mp
 from itertools import product
 
 __all__ = ["Absorption", "Emission"]
@@ -213,41 +212,6 @@ class Absorption(object):
                 coeff += exponent * cell_flux
 
             self.flux.append(coeff)
-        self.flux = np.array(self.flux)
-
-    def compute_abs_mp(self, k):
-
-        coeff = 0
-        # Sum for each cell
-        cells = np.arange(len(self.c_bins) - 1)
-        for i, j in product(cells, cells):
-
-            # The last column and lines have to be added manually
-            if i == cells[-1]:
-                cell_flux = np.sum(
-                    self.grid[self.c_bins[i]:self.c_bins[i + 1] + 1,
-                    self.c_bins[j]:self.c_bins[j + 1]])
-            elif j == cells[-1]:
-                cell_flux = np.sum(
-                    self.grid[self.c_bins[i]:self.c_bins[i + 1],
-                    self.c_bins[j]:self.c_bins[j + 1] + 1])
-            else:
-                cell_flux = np.sum(
-                    self.grid[self.c_bins[i]:self.c_bins[i + 1],
-                    self.c_bins[j]:self.c_bins[j + 1]])
-            exponent = np.exp(-self.tau([i, j], k))
-            coeff += exponent * cell_flux
-
-        return coeff
-
-    # Multiprocessing test
-    def test(self):
-
-        # For each wavelength, compute the absorption coefficient
-        self.flux = []
-        pool = mp.Pool(processes=4)
-        k = range(len(self.doppler_shift))
-        self.flux = pool.map(self.compute_abs_mp, k)
         self.flux = np.array(self.flux)
 
 
