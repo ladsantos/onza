@@ -8,6 +8,7 @@ The Lyman-alpha line computation module.
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 import numpy as np
+import scipy.interpolate as si
 from itertools import product
 
 __all__ = ["Absorption", "Emission"]
@@ -43,16 +44,23 @@ class Absorption(object):
 
         vel_range (tuple): Range of velocities of the spectrum (not to be
             confused with the velocities of particles!), in km / s.
+
+        densities (`numpy.array` or `None`, optional): 2-d map of densities of
+            particles.
+
+        vel_dist (`numpy.array` or `None`, optional): 1-d distribution of
+            velocities inside the interval vel_range. It can have any length, as
+            it will be interpolated to the spectral resolution automatically. It
+            has to be normalized to 1.0. Future versions should support pixel-
+            specific distributions instead of constant.
     """
-    def __init__(self, grid, positions, velocities, densities=None,
-                 cell_size=10, res_element=20, vel_range=(-300, 300),
-                 atoms_per_part=1E9):
+    def __init__(self, grid, positions=None, velocities=None, cell_size=10,
+                 res_element=20, vel_range=(-300, 300), atoms_per_part=1E9,
+                 densities=None, vel_dist=None):
         self.grid = grid
         self.g_size = len(grid)
         self.part_density = atoms_per_part
         self.px_size = 2.0 / self.g_size
-        self.pos_starcentric = positions    # Star-centric positions
-        self.vel_starcentric = velocities   # Star-centric velocities
 
         # Computing the cell bins
         self.c_bins = np.arange(0, self.g_size, cell_size)
@@ -88,23 +96,46 @@ class Absorption(object):
         self.lambda_0 = 1.2156702E-10   # km
         self.c = 299792.458             # km / s
 
-        # Changing positions and velocities from star-centric to numpy
-        # array-centric
-        self.pos = np.zeros_like(self.pos_starcentric)
-        self.pos[0] += self.pos_starcentric[1] + self.g_size // 2
-        self.pos[1] += self.pos_starcentric[0] + self.g_size // 2
-        self.pos[2] += self.pos_starcentric[2]
-        self.vel = np.zeros_like(self.vel_starcentric)
-        self.vel[0] += self.vel_starcentric[1]
-        self.vel[1] += self.vel_starcentric[0]
-        self.vel[2] += self.vel_starcentric[2]
-
-        # Computing the histogram of particles in cells and velocity space
-        self.arr = np.array([self.pos[0], self.pos[1], self.vel[2]]).T
-        self.hist, self.hist_bins = np.histogramdd(sample=self.arr,
-                                                   bins=[self.c_bins,
-                                                         self.c_bins,
-                                                         self.vel_bins])
+        # TODO: Also improve this. Probably work on an input object instead.
+        # Check if we are working with densities or particles
+        if densities is None or vel_dist is None:
+            self.pos_starcentric = positions  # Star-centric positions
+            self.vel_starcentric = velocities  # Star-centric velocities
+            # Changing positions and velocities from star-centric to numpy
+            # array-centric
+            self.pos = np.zeros_like(self.pos_starcentric)
+            self.pos[0] += self.pos_starcentric[1] + self.g_size // 2
+            self.pos[1] += self.pos_starcentric[0] + self.g_size // 2
+            self.pos[2] += self.pos_starcentric[2]
+            self.vel = np.zeros_like(self.vel_starcentric)
+            self.vel[0] += self.vel_starcentric[1]
+            self.vel[1] += self.vel_starcentric[0]
+            self.vel[2] += self.vel_starcentric[2]
+            # Computing the histogram of particles in cells and velocity space
+            self.arr = np.array([self.pos[0], self.pos[1], self.vel[2]]).T
+            self.hist, self.hist_bins = np.histogramdd(sample=self.arr,
+                                                       bins=[self.c_bins,
+                                                             self.c_bins,
+                                                             self.vel_bins])
+        else:
+            # The densities are already the 2-d histogram and we need to append
+            # the velocities distribution to produce a 3-d histogram
+            # First we verify if need be to interpolate the velocities
+            # distribution to the array of Doppler-shift
+            if len(vel_dist) != len(self.doppler_shift):
+                ref_vel_dist = np.linspace(vel_range[0], vel_range[1],
+                                         len(vel_dist))
+                f = si.interp1d(ref_vel_dist, vel_dist)
+                vel_dist = f(self.doppler_shift)
+            else:
+                pass
+            num_cells = len(self.c_bins) - 1
+            self.hist = np.zeros([num_cells, num_cells,
+                                  len(self.doppler_shift)])
+            cells = np.arange(len(self.c_bins) - 1)
+            for i, j, k in product(cells, cells,
+                                   range(len(self.doppler_shift))):
+                self.hist[i, j, k] = vel_dist[k] * densities[i, j] # TODO: THERE IS A BUG HERE!
 
         # Initiating useful global variables
         self.wavelength = (self.doppler_shift / self.c * self.lambda_0 +
