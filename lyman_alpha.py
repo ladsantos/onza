@@ -133,9 +133,23 @@ class Absorption(object):
             self.hist = np.zeros([num_cells, num_cells,
                                   len(self.doppler_shift)])
             cells = np.arange(len(self.c_bins) - 1)
-            for i, j, k in product(cells, cells,
-                                   range(len(self.doppler_shift))):
-                self.hist[i, j, k] = vel_dist[k] * densities[i, j] # TODO: THERE IS A BUG HERE!
+            for i, j in product(cells, cells):
+
+                # The last columns and lines have to be added manually
+                if i == cells[-1]:
+                    cell_dens = np.sum(
+                        densities[self.c_bins[i]:self.c_bins[i + 1] + 1,
+                        self.c_bins[j]:self.c_bins[j + 1]])
+                elif j == cells[-1]:
+                    cell_dens = np.sum(
+                        densities[self.c_bins[i]:self.c_bins[i + 1],
+                        self.c_bins[j]:self.c_bins[j + 1] + 1])
+                else:
+                    cell_dens = np.sum(
+                        densities[self.c_bins[i]:self.c_bins[i + 1],
+                        self.c_bins[j]:self.c_bins[j + 1]])
+
+                self.hist[i, j] = vel_dist * cell_dens * self.res_element
 
         # Initiating useful global variables
         self.wavelength = (self.doppler_shift / self.c * self.lambda_0 +
