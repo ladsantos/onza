@@ -23,10 +23,14 @@ class Grid(object):
     def __init__(self, size=2001):
         self.grid_size = size
         self.shape = (size, size)
-        self.norm = None  # Normalization factor
 
         # The grid itself starts as a zeros numpy-array
         self.grid = np.zeros(self.shape, float)
+
+        # Starting useful global variables
+        self.norm = None  # Normalization factor
+        self.cell_bin = None
+        self.cell_area = None
 
     # Draw a general disk
     def _draw_disk(self, center, radius, value=1.0):
@@ -96,12 +100,40 @@ class Grid(object):
     def draw_cloud(self):
         raise NotImplementedError('This method is not implemented yet.')
 
+    # Compute a cell grid
+    def draw_cells(self, cell_size=10):
+        """
+
+        Args:
+            cell_size:
+
+        Returns:
+
+        """
+        # Computing the cell bins
+        self.cell_bin = np.arange(0, self.grid_size, cell_size)
+        if self.cell_bin[-1] < self.grid_size - 1:
+            self.cell_bin = np.append(self.cell_bin, self.grid_size - 1)
+
+        # Computing the areas of each cell, in pixels
+        self.cell_area = []
+        for i in range(len(self.cell_bin) - 1):
+            area = []
+            for j in range(len(self.cell_bin) - 1):
+                area.append((self.cell_bin[i + 1] - self.cell_bin[i]) *
+                            (self.cell_bin[j + 1] - self.cell_bin[j]))
+            self.cell_area.append(area)
+        self.cell_area = np.array(self.cell_area)
+
 
 # Test module
 if __name__ == "__main__":
     g = Grid(size=221)
     g.draw_star([110, 110], 109)
     g.draw_planet([110, 110], 1)
+
+    g.draw_cells(12)
+
     _transit = g.grid
     plt.imshow(_transit)
     plt.show()
