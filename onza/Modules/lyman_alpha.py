@@ -24,10 +24,10 @@ class Absorption(object):
 
         grid (`numpy.array`): Two-dimensional image of transit
 
-        positions (`numpy.array`): Positions of particles, in unit of pixels.
-            Shape of array must be (3, N), where N is the number of
-            pseudo-particles. Positions in lines 0, 1 and 2 must be x, y and z,
-            respectively.
+        positions (`numpy.array` or `None`, optional): Positions of particles,
+            in unit of pixels. Shape of array must be (3, N), where N is the
+            number of pseudo-particles. Positions in lines 0, 1 and 2 must be x,
+            y and z, respectively. If `densities` or `vel_dist` are set to `None`
 
         velocities (`numpy.array`): Velocities of particles, in km / s. Shape of
             array must be (3, N), where N is the number of pseudo-particles.
@@ -54,9 +54,9 @@ class Absorption(object):
             has to be normalized to 1.0. Future versions should support pixel-
             specific distributions instead of constant.
     """
-    def __init__(self, grid, positions=None, velocities=None, cell_size=10,
-                 res_element=20, vel_range=(-300, 300), atoms_per_part=1E9,
-                 densities=None, vel_dist=None):
+    def __init__(self, grid, positions=None, velocities=None,
+                 atoms_per_part=None, densities=None, vel_dist=None,
+                 cell_size=10, res_element=20, vel_range=(-300, 300)):
         self.grid = grid
         self.g_size = len(grid)
         self.part_density = atoms_per_part
@@ -169,8 +169,8 @@ class Absorption(object):
         t_line = self.sigma_v_0 * num_e * self.lambda_0 / self.res_element
         return t_line
 
-    # Compute the number of hydrogen particles inside a cell within a given
-    # velocity range in the z-axis
+    # Compute the number density of hydrogen particles inside a cell within a
+    # given velocity range in the z-axis
     def num_particles(self, cell_indexes, velocity_index):
         """
 
