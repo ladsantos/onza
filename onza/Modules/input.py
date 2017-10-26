@@ -10,11 +10,40 @@ from __future__ import (division, print_function, absolute_import,
 import numpy as np
 
 
-__all__ = ["ParticleEnsemble"]
+__all__ = ["OnzaInput", "ParticleEnsemble", "DensityMap"]
+
+
+# The general onza-input parent class
+class OnzaInput(object):
+    """
+
+    Args:
+        cell_bin:
+
+        cell_area:
+
+    """
+    def __init__(self, cell_bin, vel_bin, cell_area=None):
+
+        self.cell_bin = cell_bin
+        self.vel_bin = vel_bin
+
+        if cell_area is not None:
+            self.cell_area = cell_area
+        else:
+            # Compute the areas if they were not provided
+            self.cell_area = []
+            for i in range(len(self.cell_bin) - 1):
+                area = []
+                for j in range(len(self.cell_bin) - 1):
+                    area.append((self.cell_bin[i + 1] - self.cell_bin[i]) *
+                                (self.cell_bin[j + 1] - self.cell_bin[j]))
+                self.cell_area.append(area)
+            self.cell_area = np.array(self.cell_area)
 
 
 # Compute a density cube from an ensemble of pseudo-particles
-class ParticleEnsemble(object):
+class ParticleEnsemble(OnzaInput):
     """
     Compute the density cube (essentially an histogram) of an ensemble of
     pseudo-particles. The third dimension is an histogram of velocities in the
@@ -46,14 +75,11 @@ class ParticleEnsemble(object):
     """
     def __init__(self, positions, velocities, cell_bin, vel_bin, cell_area=None,
                  atoms_per_particle=1E9):
-        """
 
+        super(ParticleEnsemble, self).__init__(cell_bin, vel_bin, cell_area)
 
-        """
         self.pos = positions
         self.vel = velocities
-        self.cell_bin = cell_bin
-        self.vel_bin = vel_bin
 
         # Computing the histogram of particles in cells and velocity space
         self.arr = np.array([self.vel[2], self.pos[0], self.pos[1]]).T
@@ -62,31 +88,27 @@ class ParticleEnsemble(object):
                                                          self.cell_bin,
                                                          self.cell_bin])
         self.hist *= atoms_per_particle
-
-        # Divide by the area of the cells
-        if cell_area is not None:
-            self.cell_area = cell_area
-            self.density = self.hist / self.cell_area
-        else:
-            # First compute the areas if they were not provided
-            self.cell_area = []
-            for i in range(len(self.cell_bin) - 1):
-                area = []
-                for j in range(len(self.cell_bin) - 1):
-                    area.append((self.cell_bin[i + 1] - self.cell_bin[i]) *
-                                (self.cell_bin[j + 1] - self.cell_bin[j]))
-                self.cell_area.append(area)
-            self.cell_area = np.array(self.cell_area)
-            # And finally compute the densities
-
-            self.density = self.hist / self.cell_area
+        self.density = self.hist / self.cell_area
 
 
 # Compute a density cube from a 2-d density map and a fixed distribution of
 # velocities
-class DensityMap(object):
+class DensityMap(OnzaInput):
     """
 
+    Args:
+        density_map:
+        vel_bin:
+        vel_dist:
+        cell_bin:
+        cell_area:
+
     """
-    def __init__(self):
+    def __init__(self, density_map, vel_bin, vel_dist, cell_bin,
+                 cell_area=None):
+
+        super(DensityMap, self).__init__(cell_bin, vel_bin, cell_area)
+
+        self.map = density_map
+        self.vel_dist = vel_dist
         pass
