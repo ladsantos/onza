@@ -101,11 +101,13 @@ class Grid(object):
         raise NotImplementedError('This method is not implemented yet.')
 
     # Compute a cell grid
-    def draw_cells(self, cell_size=10):
+    def draw_cells(self, cell_size=10, px_physical_area=40680159.61):
         """
 
         Args:
             cell_size:
+
+            px_physical_area (`float`): In km ** 2
 
         Returns:
 
@@ -123,7 +125,7 @@ class Grid(object):
                 area.append((self.cell_bin[i + 1] - self.cell_bin[i]) *
                             (self.cell_bin[j + 1] - self.cell_bin[j]))
             self.cell_area.append(area)
-        self.cell_area = np.array(self.cell_area)
+        self.cell_area = np.array(self.cell_area) * px_physical_area
 
 
 # Test module

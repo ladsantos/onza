@@ -8,6 +8,7 @@ This module computes input data for the lyman_alpha module.
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 import numpy as np
+from itertools import product
 
 
 __all__ = ["ParticleEnsemble", "DensityMap"]
@@ -25,7 +26,8 @@ class _OnzaInput(object):
         cell_area:
 
     """
-    def __init__(self, cell_bin, vel_bin, cell_area=None):
+    def __init__(self, cell_bin, vel_bin, cell_area=None,
+                 px_physical_area=40680159.61):
 
         self.cell_bin = cell_bin
         self.vel_bin = vel_bin
@@ -42,7 +44,7 @@ class _OnzaInput(object):
                     area.append((self.cell_bin[i + 1] - self.cell_bin[i]) *
                                 (self.cell_bin[j + 1] - self.cell_bin[j]))
                 self.cell_area.append(area)
-            self.cell_area = np.array(self.cell_area)
+            self.cell_area = np.array(self.cell_area) * px_physical_area
 
         # Compute the `doppler_shift` array, which consists on the values of the
         # Doppler shift away from the line center computed as the mean of two
@@ -127,6 +129,26 @@ class DensityMap(_OnzaInput):
         self.map = density_map
         self.vel_dist = vel_dist
 
+        # Computing the coarse map (cells instead of pixels)
+        cells = np.arange(len(cell_bin) - 1)
+        self.map_coarse = np.zeros([len(cells), len(cells)], float)
+
+        for i, j in product(cells, cells):
+
+            # The last column and lines have to be added manually
+            if i == cells[-1]:
+                self.map_coarse[i, j] = np.sum(
+                    self.map[cell_bin[i]:cell_bin[i + 1] + 1,
+                             cell_bin[j]:cell_bin[j + 1]])
+            elif j == cells[-1]:
+                self.map_coarse[i, j] = np.sum(
+                    self.map[cell_bin[i]:cell_bin[i + 1],
+                             cell_bin[j]:cell_bin[j + 1] + 1])
+            else:
+                self.map_coarse[i, j] = np.sum(
+                    self.map[cell_bin[i]:cell_bin[i + 1],
+                             cell_bin[j]:cell_bin[j + 1]])
+
         # Computing the density cube
-        self.density = np.array([vk * self.map * self.res_element
-                                 for vk in self.vel_dist])
+        self.density = np.array([vk * self.map_coarse * self.res_element
+                                 for vk in self.vel_dist]) / self.cell_area
