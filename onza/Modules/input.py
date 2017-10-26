@@ -10,15 +10,17 @@ from __future__ import (division, print_function, absolute_import,
 import numpy as np
 
 
-__all__ = ["OnzaInput", "ParticleEnsemble", "DensityMap"]
+__all__ = ["ParticleEnsemble", "DensityMap"]
 
 
 # The general onza-input parent class
-class OnzaInput(object):
+class _OnzaInput(object):
     """
 
     Args:
         cell_bin:
+
+        vel_bin:
 
         cell_area:
 
@@ -28,6 +30,7 @@ class OnzaInput(object):
         self.cell_bin = cell_bin
         self.vel_bin = vel_bin
 
+        # Check if `cell_area` was provided
         if cell_area is not None:
             self.cell_area = cell_area
         else:
@@ -41,9 +44,21 @@ class OnzaInput(object):
                 self.cell_area.append(area)
             self.cell_area = np.array(self.cell_area)
 
+        # Compute the `doppler_shift` array, which consists on the values of the
+        # Doppler shift away from the line center computed as the mean of two
+        # consecutive values in `vel_bin`
+        self.doppler_shift = []
+        for i in range(len(self.vel_bin) - 1):
+            self.doppler_shift.append((self.vel_bin[i] +
+                                       self.vel_bin[i + 1]) / 2)
+        self.doppler_shift = np.array(self.doppler_shift)
+
+        # Spectral resolution element, assuming uniform Doppler shift sampling
+        self.res_element = self.doppler_shift[1] - self.doppler_shift[0]
+
 
 # Compute a density cube from an ensemble of pseudo-particles
-class ParticleEnsemble(OnzaInput):
+class ParticleEnsemble(_OnzaInput):
     """
     Compute the density cube (essentially an histogram) of an ensemble of
     pseudo-particles. The third dimension is an histogram of velocities in the
@@ -93,7 +108,7 @@ class ParticleEnsemble(OnzaInput):
 
 # Compute a density cube from a 2-d density map and a fixed distribution of
 # velocities
-class DensityMap(OnzaInput):
+class DensityMap(_OnzaInput):
     """
 
     Args:
@@ -111,4 +126,7 @@ class DensityMap(OnzaInput):
 
         self.map = density_map
         self.vel_dist = vel_dist
-        pass
+
+        # Computing the density cube
+        self.density = np.array([vk * self.map * self.res_element
+                                 for vk in self.vel_dist])

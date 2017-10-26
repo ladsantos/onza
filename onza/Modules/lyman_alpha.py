@@ -24,31 +24,21 @@ class Absorption(object):
         transit_grid (`onza.transit.Grid`): Two-dimensional image of transit.
 
         density_cube (`onza.input` object): Three-dimensional map of densities
-            in spatial (x and y) and velocity (z) dimensions.
+            in spatial and velocity dimensions.
 
-        res_element (`float`): Resolution element of the spectrum in km / s.
-
-        vel_range (tuple): Range of velocities of the spectrum in km / s.
     """
-    def __init__(self, transit_grid, density_cube, res_element=20,
-                 vel_range=(-300, 300)):
+    def __init__(self, transit_grid, density_cube):
 
         self.transit = transit_grid
         self.cube = density_cube
 
         # Velocity bins are used to compute the spectral absorption in bins
         # of velocity space defined by the spectral resolution element
-        self.res_element = res_element
-        self.shift_bin = np.arange(
-                vel_range[0] - res_element / 2,
-                vel_range[1] + res_element * 3 / 2, res_element)
+        self.shift_bin = self.cube.vel_bin
+        self.res_element = self.cube.res_element
 
         # The Doppler shift (reference velocities) and wavelengths
-        self.doppler_shift = []
-        for i in range(len(self.shift_bin) - 1):
-            self.doppler_shift.append((self.shift_bin[i] +
-                                       self.shift_bin[i + 1]) / 2)
-        self.doppler_shift = np.array(self.doppler_shift)
+        self.doppler_shift = self.cube.doppler_shift
 
         # Physical constants
         self.damp_const = 6.27E8        # s ** (-1)

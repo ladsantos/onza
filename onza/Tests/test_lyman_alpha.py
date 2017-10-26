@@ -27,7 +27,7 @@ def test_particle():
     cube = input.ParticleEnsemble(part_pos, part_vel, cell_bin, vel_bin,
                                   cell_area, atoms_per_particle=1E22)
 
-    ab = lyman_alpha.Absorption(grid, cube, res_element)
+    ab = lyman_alpha.Absorption(grid, cube)
     ab.compute_abs()
 
     plt.plot(ab.doppler_shift, ab.flux, label=r'$\sigma_{\mathrm{vel}}$ = '
