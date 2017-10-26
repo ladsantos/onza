@@ -8,7 +8,6 @@ The Lyman-alpha line computation module.
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 import numpy as np
-import scipy.interpolate as si
 from itertools import product
 
 __all__ = ["Absorption", "Emission"]
@@ -22,72 +21,33 @@ class Absorption(object):
 
     Args:
 
-        grid (`numpy.array`): Two-dimensional image of transit
+        transit_grid (`onza.transit.Grid`): Two-dimensional image of transit.
 
-        positions (`numpy.array` or `None`, optional): Positions of particles,
-            in unit of pixels. Shape of array must be (3, N), where N is the
-            number of pseudo-particles. Positions in lines 0, 1 and 2 must be x,
-            y and z, respectively. If `densities` or `vel_dist` are set to `None`
-
-        velocities (`numpy.array`): Velocities of particles, in km / s. Shape of
-            array must be (3, N), where N is the number of pseudo-particles.
-            Velocities in lines 0, 1 and 2 must be x, y and z, respectively.
-
-        densities (`numpy.array` or `None`, optional): Column densities of
-            particles. Must have the same shape as `grid`.
-
-        cell_size (`int`): Size of cell, in px. Cells are the regions of the
-            transit image where fluxes are computed. Lower cell sizes will
-            render a finer computation of fluxes.
+        density_cube (`onza.input` object): Three-dimensional map of densities
+            in spatial (x and y) and velocity (z) dimensions.
 
         res_element (`float`): Resolution element of the spectrum in km / s.
 
-        vel_range (tuple): Range of velocities of the spectrum (not to be
-            confused with the velocities of particles!), in km / s.
-
-        densities (`numpy.array` or `None`, optional): 2-d map of densities of
-            particles.
-
-        vel_dist (`numpy.array` or `None`, optional): 1-d distribution of
-            velocities inside the interval vel_range. It can have any length, as
-            it will be interpolated to the spectral resolution automatically. It
-            has to be normalized to 1.0. Future versions should support pixel-
-            specific distributions instead of constant.
+        vel_range (tuple): Range of velocities of the spectrum in km / s.
     """
-    def __init__(self, grid, positions=None, velocities=None,
-                 atoms_per_part=None, densities=None, vel_dist=None,
-                 cell_size=10, res_element=20, vel_range=(-300, 300)):
-        self.grid = grid
-        self.g_size = len(grid)
-        self.part_density = atoms_per_part
-        self.px_size = 2.0 / self.g_size
+    def __init__(self, transit_grid, density_cube, res_element=20,
+                 vel_range=(-300, 300)):
 
-        # Computing the cell bins
-        self.c_bins = np.arange(0, self.g_size, cell_size)
-        if self.c_bins[-1] < self.g_size - 1:
-            self.c_bins[-1] = self.g_size - 1
-
-        # Computing the areas of each cell. TODO: Improve this, looks horrible!
-        self.c_area = []
-        for i in range(len(self.c_bins) - 1):
-            areas = []
-            for j in range(len(self.c_bins) - 1):
-                areas.append((self.c_bins[i + 1] - self.c_bins[i]) ** 2)
-            self.c_area.append(areas)
-        self.c_area = np.array(self.c_area) * self.px_size ** 2
+        self.transit = transit_grid
+        self.cube = density_cube
 
         # Velocity bins are used to compute the spectral absorption in bins
         # of velocity space defined by the spectral resolution element
         self.res_element = res_element
-        self.vel_bins = np.arange(
+        self.shift_bin = np.arange(
                 vel_range[0] - res_element / 2,
                 vel_range[1] + res_element * 3 / 2, res_element)
 
         # The Doppler shift (reference velocities) and wavelengths
         self.doppler_shift = []
-        for i in range(len(self.vel_bins) - 1):
-            self.doppler_shift.append((self.vel_bins[i] +
-                                       self.vel_bins[i + 1]) / 2)
+        for i in range(len(self.shift_bin) - 1):
+            self.doppler_shift.append((self.shift_bin[i] +
+                                       self.shift_bin[i + 1]) / 2)
         self.doppler_shift = np.array(self.doppler_shift)
 
         # Physical constants
@@ -95,61 +55,6 @@ class Absorption(object):
         self.sigma_v_0 = 1.102E-12      # km ** 2 / s
         self.lambda_0 = 1.2156702E-10   # km
         self.c = 299792.458             # km / s
-
-        # TODO: Also improve this. Probably work on an input object instead.
-        # Check if we are working with densities or particles
-        if densities is None or vel_dist is None:
-            self.pos_starcentric = positions  # Star-centric positions
-            self.vel_starcentric = velocities  # Star-centric velocities
-            # Changing positions and velocities from star-centric to numpy
-            # array-centric
-            self.pos = np.zeros_like(self.pos_starcentric)
-            self.pos[0] += self.pos_starcentric[1] + self.g_size // 2
-            self.pos[1] += self.pos_starcentric[0] + self.g_size // 2
-            self.pos[2] += self.pos_starcentric[2]
-            self.vel = np.zeros_like(self.vel_starcentric)
-            self.vel[0] += self.vel_starcentric[1]
-            self.vel[1] += self.vel_starcentric[0]
-            self.vel[2] += self.vel_starcentric[2]
-            # Computing the histogram of particles in cells and velocity space
-            self.arr = np.array([self.pos[0], self.pos[1], self.vel[2]]).T
-            self.hist, self.hist_bins = np.histogramdd(sample=self.arr,
-                                                       bins=[self.c_bins,
-                                                             self.c_bins,
-                                                             self.vel_bins])
-        else:
-            # The densities are already the 2-d histogram and we need to append
-            # the velocities distribution to produce a 3-d histogram
-            # First we verify if need be to interpolate the velocities
-            # distribution to the array of Doppler-shift
-            if len(vel_dist) != len(self.doppler_shift):
-                ref_vel_dist = np.linspace(vel_range[0], vel_range[1],
-                                         len(vel_dist))
-                f = si.interp1d(ref_vel_dist, vel_dist)
-                vel_dist = f(self.doppler_shift)
-            else:
-                pass
-            num_cells = len(self.c_bins) - 1
-            self.hist = np.zeros([num_cells, num_cells,
-                                  len(self.doppler_shift)])
-            cells = np.arange(len(self.c_bins) - 1)
-            for i, j in product(cells, cells):
-
-                # The last columns and lines have to be added manually
-                if i == cells[-1]:
-                    cell_dens = np.sum(
-                        densities[self.c_bins[i]:self.c_bins[i + 1] + 1,
-                        self.c_bins[j]:self.c_bins[j + 1]])
-                elif j == cells[-1]:
-                    cell_dens = np.sum(
-                        densities[self.c_bins[i]:self.c_bins[i + 1],
-                        self.c_bins[j]:self.c_bins[j + 1] + 1])
-                else:
-                    cell_dens = np.sum(
-                        densities[self.c_bins[i]:self.c_bins[i + 1],
-                        self.c_bins[j]:self.c_bins[j + 1]])
-
-                self.hist[i, j] = vel_dist * cell_dens * self.res_element
 
         # Initiating useful global variables
         self.wavelength = (self.doppler_shift / self.c * self.lambda_0 +
@@ -159,31 +64,20 @@ class Absorption(object):
     # Narrow absorption contribution
     def tau_line(self, num_e):
         """
+        Computes the narrow optical depth contribution from the Lyman-alpha line
+        center.
 
         Args:
-            num_e:
+
+            num_e (`float`): Number density of particles per unit area of
+            transit pixel.
 
         Returns:
 
+            t_line (`float`): The optical depth contribution
         """
         t_line = self.sigma_v_0 * num_e * self.lambda_0 / self.res_element
         return t_line
-
-    # Compute the number density of hydrogen particles inside a cell within a
-    # given velocity range in the z-axis
-    def num_particles(self, cell_indexes, velocity_index):
-        """
-
-        Args:
-            cell_indexes: In the form [i, j]
-            velocity_index: int
-
-        Returns:
-
-        """
-        n_c_v = self.hist[cell_indexes[0], cell_indexes[1],
-                          velocity_index] * self.part_density
-        return n_c_v / self.c_area[cell_indexes[0], cell_indexes[1]]
 
     # The total optical depth
     def tau(self, cell_indexes, velocity_bin):
@@ -212,14 +106,15 @@ class Absorption(object):
             else:
                 # Sweep the whole velocity spectrum
                 cur_vel = self.doppler_shift[i]
-                t0 = self.sigma_v_0 * self.num_particles(cell_indexes, i)
+                dens = self.cube.density[i, cell_indexes[0], cell_indexes[1]]
+                t0 = self.sigma_v_0 * dens
                 t1 = self.damp_const / 4 / np.pi ** 2 * self.lambda_0 ** 2
                 t2 = (cur_vel - ref_vel) ** (-2)
                 tau_broad.append(t0 * t1 * t2)
         tau_broad = np.array(tau_broad)
 
         # Finally compute the total optical depth
-        ref_num_e = self.num_particles(cell_indexes, k)
+        ref_num_e = self.cube.density[k, cell_indexes[0], cell_indexes[1]]
         tau = self.tau_line(ref_num_e) + np.sum(tau_broad)
         return tau
 
@@ -236,23 +131,24 @@ class Absorption(object):
         for k in range(len(self.doppler_shift)):
             coeff = 0
             # Sum for each cell
-            cells = np.arange(len(self.c_bins) - 1)
+            c_bin = self.transit.cell_bin
+            cells = np.arange(len(c_bin) - 1)
 
             for i, j in product(cells, cells):
 
                 # The last column and lines have to be added manually
                 if i == cells[-1]:
                     cell_flux = np.sum(
-                            self.grid[self.c_bins[i]:self.c_bins[i + 1] + 1,
-                            self.c_bins[j]:self.c_bins[j + 1]])
+                        self.transit.grid[c_bin[i]:c_bin[i + 1] + 1,
+                                          c_bin[j]:c_bin[j + 1]])
                 elif j == cells[-1]:
                     cell_flux = np.sum(
-                            self.grid[self.c_bins[i]:self.c_bins[i + 1],
-                            self.c_bins[j]:self.c_bins[j + 1] + 1])
+                        self.transit.grid[c_bin[i]:c_bin[i + 1],
+                                          c_bin[j]:c_bin[j + 1] + 1])
                 else:
                     cell_flux = np.sum(
-                            self.grid[self.c_bins[i]:self.c_bins[i + 1],
-                            self.c_bins[j]:self.c_bins[j + 1]])
+                        self.transit.grid[c_bin[i]:c_bin[i + 1],
+                                          c_bin[j]:c_bin[j + 1]])
                 exponent = np.exp(-self.tau([i, j], k))
                 coeff += exponent * cell_flux
 

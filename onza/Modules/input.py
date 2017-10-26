@@ -17,7 +17,7 @@ __all__ = ["ParticleEnsemble"]
 class ParticleEnsemble(object):
     """
     Compute the density cube (essentially an histogram) of an ensemble of
-    pseudo-particles. TThe third dimension is an histogram of velocities in the
+    pseudo-particles. The third dimension is an histogram of velocities in the
     line-of-sight direction.
 
     Args:
@@ -56,17 +56,17 @@ class ParticleEnsemble(object):
         self.vel_bin = vel_bin
 
         # Computing the histogram of particles in cells and velocity space
-        self.arr = np.array([self.pos[0], self.pos[1], self.vel[2]]).T
+        self.arr = np.array([self.vel[2], self.pos[0], self.pos[1]]).T
         self.hist, self.hist_bins = np.histogramdd(sample=self.arr,
-                                                   bins=[self.cell_bin,
+                                                   bins=[self.vel_bin,
                                                          self.cell_bin,
-                                                         self.vel_bin])
+                                                         self.cell_bin])
         self.hist *= atoms_per_particle
 
         # Divide by the area of the cells
         if cell_area is not None:
             self.cell_area = cell_area
-            self.density = self.hist[:, :] / self.cell_area
+            self.density = self.hist / self.cell_area
         else:
             # First compute the areas if they were not provided
             self.cell_area = []
@@ -78,4 +78,15 @@ class ParticleEnsemble(object):
                 self.cell_area.append(area)
             self.cell_area = np.array(self.cell_area)
             # And finally compute the densities
-            self.density = self.hist[:, :] / self.cell_area
+
+            self.density = self.hist / self.cell_area
+
+
+# Compute a density cube from a 2-d density map and a fixed distribution of
+# velocities
+class DensityMap(object):
+    """
+
+    """
+    def __init__(self):
+        pass
