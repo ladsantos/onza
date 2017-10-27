@@ -7,7 +7,9 @@ planets and pseudo-particle clouds.
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as plc
 from PIL import Image, ImageDraw
+from itertools import product
 
 __all__ = ["Grid"]
 
@@ -29,6 +31,7 @@ class Grid(object):
 
         # Starting useful global variables
         self.norm = None  # Normalization factor
+        self.cloud = None
         self.cell_bin = None
         self.cell_area = None
 
@@ -97,8 +100,16 @@ class Grid(object):
         self.grid = self.grid.clip(min=0.0)
 
     # Draw a cloud of pseudo-particles in the grid
-    def draw_cloud(self):
-        raise NotImplementedError('This method is not implemented yet.')
+    def draw_cloud(self, density_map):
+        """
+
+        Args:
+            density_map (`numpy.array`): Must have the same shape as the grid.
+
+        Returns:
+
+        """
+        self.cloud = density_map
 
     # Compute a cell grid
     def draw_cells(self, cell_size=10, px_physical_area=40680159.61):
@@ -126,6 +137,39 @@ class Grid(object):
                             (self.cell_bin[j + 1] - self.cell_bin[j]))
             self.cell_area.append(area)
         self.cell_area = np.array(self.cell_area) * px_physical_area
+
+    # Plot transit just for fun
+    def plot_transit(self, plot_cloud=True, plot_cells=True, output_file=None):
+        """
+
+        Args:
+            plot_cloud:
+            plot_cells:
+            output_file:
+
+        Returns:
+
+        """
+        plt.imshow(self.grid)
+
+        # Check if cells have been drawn, and if they have, plot them
+        if self.cell_area is not None and plot_cells is True:
+            for i, j in product(self.cell_bin, self.cell_bin):
+                plt.axvline(x=i, color='k', lw=1)
+                plt.axhline(y=j, color='k', lw=1)
+
+        # Check if cloud has been drawn and plot it
+        if self.cloud is not None and plot_cloud is True:
+            norm = plc.LogNorm()
+            plt.imshow(self.grid / self.cloud, norm=norm)
+
+        plt.axis('off')
+        plt.tight_layout()
+        if output_file is None:
+            plt.show()
+        else:
+            plt.savefig(output_file)
+            plt.close()
 
 
 # Test module
