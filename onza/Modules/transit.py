@@ -8,6 +8,7 @@ planets and pseudo-particle clouds.
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as plc
+import scipy.optimize as sp
 from PIL import Image, ImageDraw
 from itertools import product
 
@@ -80,7 +81,7 @@ class Grid(object):
         self.grid = star / self.norm
 
     # Draw the disk of a planet in the grid
-    def draw_planet(self, center, radius):
+    def draw_planet(self, radius, center=None, imp_param=None, orb_dist=None):
         """
         Computes a two-dimensional image of a planet given its position and
         radius.
@@ -172,14 +173,73 @@ class Grid(object):
             plt.close()
 
 
+# The orbit module computes the orbital motion of a planet
+class Orbit(object):
+    """
+
+    Args:
+
+        ecc: Eccentricity.
+
+        semi_a: Semi-major axis.
+
+        phi0: Phase of periastron passage.
+
+        arg_periapse: Argument of periapse.
+
+        long_asc_node: Longitude of ascending node. Default is pi radians.
+
+        inc: Inclination angle of the orbit in relation to the reference plane.
+            Default is pi / 2 radians.
+    """
+    def __init__(self, ecc, semi_a, phi0, arg_periapse, long_asc_node=np.pi,
+                 inc=np.pi/2):
+        self.ecc = ecc
+        self.semi_a = semi_a
+        self.phi0 = phi0
+        self.omega = arg_periapse
+        self.big_omega = long_asc_node
+        self.i = inc
+
+    # Compute Kepler equation
+    def kep_eq(self, e_ano, m_ano):
+        kep = e_ano - self.ecc * np.sin(e_ano) - m_ano
+        return kep
+
+    # Compute position of planet
+    def pos(self, phi):
+        m_ano = phi - self.phi0  # Mean anomaly
+
+        # Compute eccentric anomaly. First try it as if it were an array-like
+        # object. If error is raised, treat as float
+        try:
+            e_ano = np.array([sp.newton(func=self.kep_eq, x0=mk, args=(mk,))
+                              for mk in m_ano])
+        except TypeError:
+            e_ano = sp.newton(func=self.kep_eq, x0=m_ano, args=(m_ano,))
+
+        # Computing the true anomaly
+        f = 2 * np.arctan2(np.sqrt(1. + self.ecc) * np.sin(e_ano / 2),
+                           np.sqrt(1. - self.ecc) * np.cos(e_ano / 2))
+
+        # The distance from center of motion
+        r = self.semi_a * (1 - self.ecc ** 2) / (1 + self.ecc * np.cos(f))
+
+        # Finally compute the position
+        xs = r * (np.cos(self.big_omega) * np.cos(self.omega + f) -
+                  np.sin(self.big_omega) * np.sin(self.omega + f) *
+                  np.cos(self.i))
+        ys = r * (np.sin(self.big_omega) * np.cos(self.omega + f) +
+                  np.cos(self.big_omega) * np.sin(self.omega + f) *
+                  np.cos(self.i))
+        zs = r * np.sin(self.omega + f) * np.sin(self.i)
+        position = np.array([xs, ys, zs])
+
+        return position
+
+
 # Test module
 if __name__ == "__main__":
-    g = Grid(size=221)
-    g.draw_star([110, 110], 109)
-    g.draw_planet([110, 110], 1)
-
-    g.draw_cells(12)
-
-    _transit = g.grid
-    plt.imshow(_transit)
-    plt.show()
+    # a is given in stellar radii
+    o = Orbit(0.001, 10, 0, np.pi, inc=np.pi / 4)
+    print(o.pos(-np.pi / 2))
