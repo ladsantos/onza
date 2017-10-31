@@ -46,6 +46,22 @@ class Absorption(object):
         self.lambda_0 = 1.2156702E-10   # km
         self.c = 299792.458             # km / s
 
+        # Compute the flux in each cell. It does not look good, but bear with me
+        # for a second. This is necessary to avoid unnecessary loops when
+        # computing the absorption profile.
+        c_bin = self.transit.cell_bin
+        cells = np.arange(len(c_bin) - 1)
+
+        def _expr(inds):
+            i = inds[0]
+            j = inds[1]
+            flux = np.sum(self.transit.grid[c_bin[i]:c_bin[i + 1],
+                          c_bin[j]:c_bin[j + 1]])
+            return flux
+
+        self.cell_flux = np.array(list(map(_expr, product(cells, cells))))
+        self.cell_flux = np.reshape(self.cell_flux, [len(cells), len(cells)])
+
         # Initiating useful global variables
         self.wavelength = (self.doppler_shift / self.c * self.lambda_0 +
                            self.lambda_0) * 1E13  # Angstrom
@@ -127,20 +143,8 @@ class Absorption(object):
         def _expr(inds):
             i = inds[0]
             j = inds[1]
-            if i == cells[-1]:
-                flux = np.sum(
-                    self.transit.grid[c_bin[i]:c_bin[i + 1] + 1,
-                                      c_bin[j]:c_bin[j + 1]])
-            elif j == cells[-1]:
-                flux = np.sum(
-                    self.transit.grid[c_bin[i]:c_bin[i + 1],
-                                      c_bin[j]:c_bin[j + 1] + 1])
-            else:
-                flux = np.sum(
-                    self.transit.grid[c_bin[i]:c_bin[i + 1],
-                                      c_bin[j]:c_bin[j + 1]])
             exponent = np.exp(-self.tau([i, j], k))
-            return exponent * flux
+            return exponent * self.cell_flux[i, j]
 
         # We use the `map` function to perform faster computation for each cell
         coeff = list(map(_expr, product(cells, cells)))
