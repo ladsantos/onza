@@ -8,6 +8,7 @@ The Lyman-alpha line computation module.
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 import numpy as np
+from schwimmbad import MultiPool, SerialPool
 from itertools import product
 
 __all__ = ["Absorption", "Emission"]
@@ -21,11 +22,10 @@ class Absorption(object):
 
     Args:
 
-        transit_grid (`onza.transit.Grid`): Two-dimensional image of transit.
+        transit_grid (`transit.Grid` object): Two-dimensional image of transit.
 
-        density_cube (`onza.input` object): Three-dimensional map of densities
+        density_cube (`input` object): Three-dimensional map of densities
             in spatial and velocity dimensions.
-
     """
     def __init__(self, transit_grid, density_cube):
 
@@ -59,12 +59,11 @@ class Absorption(object):
 
         Args:
 
-            num_e (`float`): Number density of particles per unit area of
-            transit pixel.
+            num_e (`float`): Number density of transiting particles per km ** 2.
 
         Returns:
 
-            t_line (`float`): The optical depth contribution
+            t_line (`float`): The optical depth narrow contribution.
         """
         t_line = self.sigma_v_0 * num_e * self.lambda_0 / self.res_element
         return t_line
@@ -72,14 +71,19 @@ class Absorption(object):
     # The total optical depth
     def tau(self, cell_indexes, velocity_bin):
         """
+        Computes the total optical depth taking into account both the narrow and
+        broad contributions.
 
         Args:
-            cell_indexes: In the form [i, j]
+
+            cell_indexes (array-like): In the form [i, j]
+
             velocity_bin: Index of the bin (left side) of the desired velocity
                 range in ``self.vel_bins``
 
         Returns:
 
+            tau (`float`): Total optical depth in the cell
         """
 
         k = velocity_bin
@@ -108,41 +112,58 @@ class Absorption(object):
         tau = self.tau_line(ref_num_e) + np.sum(tau_broad)
         return tau
 
-    # Compute absorption spectrum
-    def compute_abs(self):
+    # Compute absorption index for a single Doppler shift bin
+    def _compute_abs(self, k):
         """
 
         Returns:
 
         """
-        self.flux = []
+        c_bin = self.transit.cell_bin
+        cells = np.arange(len(c_bin) - 1)
 
-        # For each wavelength, compute the absorption coefficient
-        for k in range(len(self.doppler_shift)):
-            coeff = 0
-            # Sum for each cell
-            c_bin = self.transit.cell_bin
-            cells = np.arange(len(c_bin) - 1)
+        # The last column and lines have to be added manually. We use this
+        # expression for that
+        def _expr(inds):
+            i = inds[0]
+            j = inds[1]
+            if i == cells[-1]:
+                flux = np.sum(
+                    self.transit.grid[c_bin[i]:c_bin[i + 1] + 1,
+                                      c_bin[j]:c_bin[j + 1]])
+            elif j == cells[-1]:
+                flux = np.sum(
+                    self.transit.grid[c_bin[i]:c_bin[i + 1],
+                                      c_bin[j]:c_bin[j + 1] + 1])
+            else:
+                flux = np.sum(
+                    self.transit.grid[c_bin[i]:c_bin[i + 1],
+                                      c_bin[j]:c_bin[j + 1]])
+            exponent = np.exp(-self.tau([i, j], k))
+            return exponent * flux
 
-            for i, j in product(cells, cells):
+        # We use the `map` function to perform faster computation for each cell
+        coeff = list(map(_expr, product(cells, cells)))
+        coeff = sum(coeff)
+        return coeff
 
-                # The last column and lines have to be added manually
-                if i == cells[-1]:
-                    cell_flux = np.sum(
-                        self.transit.grid[c_bin[i]:c_bin[i + 1] + 1,
-                                          c_bin[j]:c_bin[j + 1]])
-                elif j == cells[-1]:
-                    cell_flux = np.sum(
-                        self.transit.grid[c_bin[i]:c_bin[i + 1],
-                                          c_bin[j]:c_bin[j + 1] + 1])
-                else:
-                    cell_flux = np.sum(
-                        self.transit.grid[c_bin[i]:c_bin[i + 1],
-                                          c_bin[j]:c_bin[j + 1]])
-                exponent = np.exp(-self.tau([i, j], k))
-                coeff += exponent * cell_flux
+    # Compute absorption using single-process or multiprocessing
+    def compute_profile(self, multiprocessing=True):
+        """
 
-            self.flux.append(coeff)
+        Args:
+            multiprocessing
+
+        Returns:
+
+        """
+        k = list(range(len(self.doppler_shift)))
+        if multiprocessing is True:
+            with MultiPool() as pool:
+                self.flux = list(pool.map(self._compute_abs, k))
+        else:
+            with SerialPool() as pool:
+                self.flux = list(pool.map(self._compute_abs, k))
         self.flux = np.array(self.flux)
 
 
