@@ -130,24 +130,11 @@ class DensityMap(_OnzaInput):
         self.vel_dist = vel_dist
 
         # Computing the coarse map (cells instead of pixels)
-        cells = np.arange(len(cell_bin) - 1)
-        self.map_coarse = np.zeros([len(cells), len(cells)], float)
-
-        for i, j in product(cells, cells):
-
-            # The last column and lines have to be added manually
-            if i == cells[-1]:
-                self.map_coarse[i, j] = np.sum(
-                    self.map[cell_bin[i]:cell_bin[i + 1] + 1,
-                             cell_bin[j]:cell_bin[j + 1]])
-            elif j == cells[-1]:
-                self.map_coarse[i, j] = np.sum(
-                    self.map[cell_bin[i]:cell_bin[i + 1],
-                             cell_bin[j]:cell_bin[j + 1] + 1])
-            else:
-                self.map_coarse[i, j] = np.sum(
-                    self.map[cell_bin[i]:cell_bin[i + 1],
-                             cell_bin[j]:cell_bin[j + 1]])
+        cells = np.arange(len(cell_bin))
+        self.map_coarse = np.zeros([len(cells) - 1, len(cells) - 1], float)
+        for i, j in product(cells[:-1], cells[:-1]):
+            self.map_coarse[i, j] = np.sum(self.map[cell_bin[i]:cell_bin[i + 1],
+                                           cell_bin[j]:cell_bin[j + 1]])
 
         # Computing the density cube
         self.density = np.array([vk * self.map_coarse * self.res_element
