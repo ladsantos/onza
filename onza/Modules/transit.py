@@ -81,7 +81,7 @@ class Grid(object):
         self.grid = star / self.norm
 
     # Draw the disk of a planet in the grid
-    def draw_planet(self, radius, center=None, imp_param=None, orb_dist=None):
+    def draw_planet(self, center, radius, imp_param=None, orb_dist=None):
         """
         Computes a two-dimensional image of a planet given its position and
         radius.
