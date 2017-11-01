@@ -123,23 +123,16 @@ class Absorption(object):
         return tau
 
     # Compute absorption index for a single Doppler shift bin
-    def _compute_abs(self, k):
+    def _compute_abs(self, indexes):
         """
 
         Returns:
 
         """
-        c_bin = self.transit.cell_bin
-        cells = np.arange(len(c_bin) - 1)
-
-        def _expr(inds):
-            i = inds[0]
-            j = inds[1]
-            exponent = np.exp(-self.tau([i, j], k))
-            return exponent * self.cell_flux[i, j]
-
-        # We use the `map` function to perform faster computation for each cell
-        coeff = sum(list(map(_expr, product(cells, cells))))
+        i = indexes[1]
+        j = indexes[2]
+        k = indexes[0]
+        coeff = np.exp(-self.tau([i, j], k)) * self.cell_flux[i, j]
         return coeff
 
     # Compute absorption using single-process or multiprocessing
@@ -153,13 +146,17 @@ class Absorption(object):
 
         """
         k = list(range(len(self.doppler_shift)))
+        cells = list(range(len(self.transit.cell_bin) - 1))
         if multiprocessing is True:
             with MultiPool() as pool:
-                self.flux = list(pool.map(self._compute_abs, k))
+                self.flux = list(pool.map(self._compute_abs, product(k, cells,
+                                                                     cells)))
         else:
             with SerialPool() as pool:
-                self.flux = list(pool.map(self._compute_abs, k))
-        self.flux = np.array(self.flux)
+                self.flux = list(pool.map(self._compute_abs, product(k, cells,
+                                                                     cells)))
+        self.flux = np.reshape(self.flux, [len(k), len(cells), len(cells)])
+        self.flux = np.sum(self.flux, axis=(1, 2))
 
 
 # The Lyman-alpha emission class
