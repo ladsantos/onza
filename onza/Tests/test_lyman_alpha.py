@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.interpolate as si
 import time
 from onza.Modules import transit, input, lyman_alpha
 
@@ -69,16 +70,17 @@ def test_map():
     # Finally compute the cube
     cube = input.DensityMap(dmap, vel_bin, vel_dist, cell_bin, cell_area)
 
-    ab = lyman_alpha.Absorption(grid, cube)
-
     # Interpolate the emission line with the wavelength array
-    # f = si.interp1d(em_line[:, 0], em_line[:, 1], kind='cubic')
-    # em = f(ab.wavelength)
+    f = si.interp1d(em_line[:, 0], em_line[:, 1], kind='cubic')
+
+    ab = lyman_alpha.Absorption(grid, cube)
+    em = f(ab.wavelength)
+    ab.flux = em
 
     curr = time.time()
     ab.compute_profile(multiprocessing=True)
     print(time.time() - curr)
-    abs_prof = ab.flux + 1.0 - np.max(ab.flux)
+    abs_prof = ab.abs_profile + 1.0 - np.max(ab.abs_profile)
 
     plt.plot(ab.doppler_shift, abs_prof,
              label=r'$\sigma_{\mathrm{vel}}$ = 30 km/s')

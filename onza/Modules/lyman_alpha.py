@@ -27,10 +27,11 @@ class Absorption(object):
         density_cube (`input` object): Three-dimensional map of densities
             in spatial and velocity dimensions.
     """
-    def __init__(self, transit_grid, density_cube):
+    def __init__(self, transit_grid, density_cube, flux=None):
 
         self.transit = transit_grid
         self.cube = density_cube
+        self.flux = flux
 
         # Velocity bins are used to compute the spectral absorption in bins
         # of velocity space defined by the spectral resolution element
@@ -65,7 +66,7 @@ class Absorption(object):
         # Initiating useful global variables
         self.wavelength = (self.doppler_shift / self.c * self.lambda_0 +
                            self.lambda_0) * 1E13  # Angstrom
-        self.flux = None
+        self.abs_profile = None
 
     # Narrow absorption contribution
     def tau_line(self, num_e):
@@ -149,14 +150,18 @@ class Absorption(object):
         cells = list(range(len(self.transit.cell_bin) - 1))
         if multiprocessing is True:
             with MultiPool() as pool:
-                self.flux = list(pool.map(self._compute_abs, product(k, cells,
-                                                                     cells)))
+                self.abs_profile = list(pool.map(self._compute_abs,
+                                                 product(k, cells, cells)))
         else:
             with SerialPool() as pool:
-                self.flux = list(pool.map(self._compute_abs, product(k, cells,
-                                                                     cells)))
-        self.flux = np.reshape(self.flux, [len(k), len(cells), len(cells)])
-        self.flux = np.sum(self.flux, axis=(1, 2))
+                self.abs_profile = list(pool.map(self._compute_abs,
+                                                 product(k, cells, cells)))
+        self.abs_profile = np.reshape(self.abs_profile,
+                                      [len(k), len(cells), len(cells)])
+        self.abs_profile = np.sum(self.abs_profile, axis=(1, 2))
+
+        if self.flux is not None:
+            self.flux *= self.abs_profile
 
 
 # The Lyman-alpha emission class
