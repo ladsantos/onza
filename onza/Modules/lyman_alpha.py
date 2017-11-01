@@ -109,13 +109,13 @@ class Absorption(object):
 
         # We compute tau_broad only for velocities that are not the reference
         other_shift = np.delete(self.doppler_shift, k)
+        other_dens = np.delete(
+            self.cube.density[:, cell_indexes[0], cell_indexes[1]], k)
 
-        # Compute the contribution of broad absorption for each velocity bin
-        tau_broad = [(other_shift[i] - ref_vel) ** (-2) * self.sigma_v_0 *
-                     self.cube.density[i, cell_indexes[0], cell_indexes[1]]
-                     for i in range(len(other_shift))]
-        tau_broad = np.array(tau_broad) * self.damp_const / 4 / np.pi ** 2 * \
-            self.lambda_0 ** 2
+        # Some clever `numpy.array` sorcery here to optimize the computation
+        delta_v = other_shift - ref_vel
+        tau_broad = delta_v ** (-2) * other_dens * self.sigma_v_0 * \
+            self.damp_const / 4 / np.pi ** 2 * self.lambda_0 ** 2
 
         # Finally compute the total optical depth
         ref_num_e = self.cube.density[k, cell_indexes[0], cell_indexes[1]]
@@ -132,8 +132,6 @@ class Absorption(object):
         c_bin = self.transit.cell_bin
         cells = np.arange(len(c_bin) - 1)
 
-        # The last column and lines have to be added manually. We use this
-        # expression for that
         def _expr(inds):
             i = inds[0]
             j = inds[1]
@@ -141,12 +139,11 @@ class Absorption(object):
             return exponent * self.cell_flux[i, j]
 
         # We use the `map` function to perform faster computation for each cell
-        coeff = list(map(_expr, product(cells, cells)))
-        coeff = sum(coeff)
+        coeff = sum(list(map(_expr, product(cells, cells))))
         return coeff
 
     # Compute absorption using single-process or multiprocessing
-    def compute_profile(self, multiprocessing=True):
+    def compute_profile(self, multiprocessing=False):
         """
 
         Args:
