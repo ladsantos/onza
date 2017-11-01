@@ -101,27 +101,21 @@ class Absorption(object):
 
             tau (`float`): Total optical depth in the cell
         """
-
         k = velocity_bin
-        tau_broad = []
 
         # The reference velocity (the part of the spectrum where we want to
         # compute the optical depth, in velocity space)
         ref_vel = self.doppler_shift[k]
 
+        # We compute tau_broad only for velocities that are not the reference
+        other_shift = np.delete(self.doppler_shift, k)
+
         # Compute the contribution of broad absorption for each velocity bin
-        for i in range(len(self.doppler_shift)):
-            if i == k:
-                pass
-            else:
-                # Sweep the whole velocity spectrum
-                cur_vel = self.doppler_shift[i]
-                dens = self.cube.density[i, cell_indexes[0], cell_indexes[1]]
-                t0 = self.sigma_v_0 * dens
-                t1 = self.damp_const / 4 / np.pi ** 2 * self.lambda_0 ** 2
-                t2 = (cur_vel - ref_vel) ** (-2)
-                tau_broad.append(t0 * t1 * t2)
-        tau_broad = np.array(tau_broad)
+        tau_broad = [(other_shift[i] - ref_vel) ** (-2) * self.sigma_v_0 *
+                     self.cube.density[i, cell_indexes[0], cell_indexes[1]]
+                     for i in range(len(other_shift))]
+        tau_broad = np.array(tau_broad) * self.damp_const / 4 / np.pi ** 2 * \
+            self.lambda_0 ** 2
 
         # Finally compute the total optical depth
         ref_num_e = self.cube.density[k, cell_indexes[0], cell_indexes[1]]
