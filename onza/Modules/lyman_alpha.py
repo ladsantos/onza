@@ -123,7 +123,7 @@ class Absorption(object):
         tau = self.tau_line(ref_num_e) + np.sum(tau_broad)
         return tau
 
-    # Compute absorption index for a single Doppler shift bin
+    # Compute absorption index for a single Doppler shift bin and a single cell
     def _compute_abs(self, indexes):
         """
 
@@ -162,6 +162,54 @@ class Absorption(object):
 
         if self.flux is not None:
             self.flux *= self.abs_profile
+
+    # New way to compute the absorption profile
+    def fast_profile(self):
+        """
+
+        Returns:
+
+        """
+        n = len(self.doppler_shift)
+        m = len(self.cube.density[0])
+
+        # Some `numpy.array` sorcery is needed to avoid loops and list
+        # comprehension, which are too slow.
+        # First we need to deal with the computation of tau_broad, which
+        # involves removing particular indices of arrays corresponding to each
+        # reference velocity in the Doppler shift array
+
+        # First create an array of the indexes to be deleted
+        i_del = np.arange(0, n)
+        i_del *= (n + 1)
+        i_del_l = i_del * m ** 2
+        i_del_u = i_del_l + m ** 2
+        # Now build the multiple slices to be removed from the densities cube
+        slices = ()
+        for i in range(n):
+            slices += (slice(i_del_l[i], i_del_u[i]), )
+        slices = np.r_[tuple(slices)]
+
+        # Now compute the doppler shifts and densities with specific indices
+        # removed
+        other_shift = np.broadcast_to(self.doppler_shift, [n, n])
+        other_shift = np.reshape(np.delete(other_shift, i_del), [n, n-1])
+        other_dens = np.broadcast_to(self.cube.density, [n, n, m, m])
+        other_dens = np.reshape(np.delete(other_dens, slices),
+                                [n, n-1, m, m])
+
+        # Now compute the optical depths and absorption coefficients
+        delta_v = (other_shift.T - self.doppler_shift)
+        term = delta_v ** (-2) * self.sigma_v_0 * self.damp_const / 4 / \
+            np.pi ** 2 * self.lambda_0 ** 2
+        tau_broad = (np.sum(other_dens.T * term, axis=-2)).T
+        tau_line = self.sigma_v_0 * self.cube.density * self.lambda_0 / \
+            self.res_element
+        tau = tau_line + tau_broad
+        coeff = self.cell_flux * np.exp(-tau)
+
+        # Finally compute absorption profile
+        self.abs_profile = np.sum(coeff, axis=(1, 2))
 
 
 # The Lyman-alpha emission class
