@@ -4,20 +4,18 @@ import scipy.interpolate as si
 import time
 from onza.Modules import transit, input, lyman_alpha
 
-# Generate a stellar disk
+# import density map
+dmap = np.loadtxt('../../dump/model_earthRad-2d.dat.gz')
+
+# GJ 436
 grid = transit.Grid(size=1001)
 grid.draw_star([500, 500], 480)
 grid.draw_planet([500, 500], 10)
 grid.draw_cells(100)
-
-# import density map
-dmap = np.loadtxt('../../dump/model_earthRad-2d.dat.gz')
 dmap = dmap[105:1106, 105:1106]
 grid.draw_cloud(dmap)
 
-# Plot it just for fun
-# grid.plot_transit(output_file='../../dump/transit_GJ436.pdf')
-
+# Setting up other important variables
 cell_bin = grid.cell_bin
 cell_area = grid.cell_area
 vel_range = (-300, 300)
@@ -43,16 +41,7 @@ def test_particle():
                                   cell_area, atoms_per_particle=1E26)
 
     ab = lyman_alpha.Absorption(grid, cube)
-    ab.compute_profile()
-
-    plt.plot(ab.doppler_shift, ab.flux, label=r'$\sigma_{\mathrm{vel}}$ = '
-                                              r'30 km/s')
-
-    plt.xlabel(r'Doppler shift from Ly-$\alpha$ (km s$^{-1}$)')
-    plt.ylabel(r'Flux')
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig('../../dump/test_particle.pdf')
+    ab.fast_profile()
 
 
 def test_map():
@@ -75,24 +64,11 @@ def test_map():
 
     ab = lyman_alpha.Absorption(grid, cube)
     em = f(ab.wavelength)
-    ab.flux = em
+    ab.flux = np.copy(em)
 
-    curr = time.time()
-    ab.compute_profile(multiprocessing=True)
-    print(time.time() - curr)
-    abs_prof = ab.abs_profile + 1.0 - np.max(ab.abs_profile)
-
-    plt.plot(ab.doppler_shift, abs_prof,
-             label=r'$\sigma_{\mathrm{vel}}$ = 30 km/s')
-
-    plt.xlabel(r'Doppler shift from Ly-$\alpha$ (km s$^{-1}$)')
-    plt.ylabel(r'Flux')
-    plt.legend()
-    plt.tight_layout()
-    #plt.savefig('../../dump/test_GJ436.pdf')
-    plt.show()
+    ab.fast_profile()
 
 
 if __name__ == '__main__':
-    # test_particle()
+    test_particle()
     test_map()
