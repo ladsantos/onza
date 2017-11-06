@@ -2,3 +2,5 @@ numpy>=1.12
 scipy>=0.19
 matplotlib>=2.0
 pillow>=4.2.1
+astropy>=2.0.2
+schwimmbad>=0.2.1

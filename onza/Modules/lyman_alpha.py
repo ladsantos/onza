@@ -10,11 +10,12 @@ from __future__ import (division, print_function, absolute_import,
 import numpy as np
 from schwimmbad import MultiPool, SerialPool
 from itertools import product
+from astropy.convolution import convolve
 
-__all__ = ["Absorption", "Emission"]
+__all__ = ["Absorption", "Emission", "LineModel"]
 
 
-# Lyman-alpha absorption class
+# Lyman-alpha absorption profile
 class Absorption(object):
     """
     Computes the wavelength-dependent Lyman-alpha absorption coefficient for
@@ -216,3 +217,23 @@ class Absorption(object):
 class Emission(object):
     def __init__(self):
         raise NotImplementedError()
+
+
+# The Lyman-alpha line model
+class LineModel(object):
+    """
+
+    Args:
+        wavelength:
+        intrinsic_emission:
+        absorption_profile:
+        instr_response:
+        ism_absorption:
+    """
+    def __init__(self, wavelength, intrinsic_emission, absorption_profile=None,
+                 instr_response=None, ism_absorption=None):
+        self.wavelength = wavelength
+        self.emission = intrinsic_emission
+        self.absorption = absorption_profile
+        self.instr_res = instr_response
+        self.ism_abs = ism_absorption
