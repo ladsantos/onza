@@ -16,7 +16,7 @@ class HubbleSTIS(object):
     """
 
     """
-    def __init__(self, config, bandwidth, simulation_path=None):
+    def __init__(self, bandwidth, config=None, simulation_path=None):
         self.config = config
         self.bandwidth = bandwidth
         self.sim_path = simulation_path
@@ -25,7 +25,7 @@ class HubbleSTIS(object):
         self.wavelength = None
         self.kernel = None
 
-        # No instrumental response
+        # Configuration not set
         if self.config is None:
             self.response_mode = None
             self.kernel_mode = None
@@ -148,12 +148,22 @@ class HubbleSTIS(object):
                                            (np.sqrt(2) * self.dw_LSF), 2))
 
         # Double Gaussian
-        if self.kernel_mode == 'double_gaussian':
+        elif self.kernel_mode == 'double_gaussian':
             kernel_core = self.coeff_LSF * np.exp(
                 -np.power(self.wavelength / (np.sqrt(2) * self.LSF_core), 2))
             kernel_wing = (1 - self.coeff_LSF) * np.exp(
                 -np.power(self.wavelength / (np.sqrt(2) * self.LSF_wing), 2))
             self.kernel = kernel_core + kernel_wing
+
+        # Tabulated LSF
+        elif self.config is None and self.sim_path is not None:
+            raise NotImplementedError('Using a tabulated LSF is not '
+                                      'implemented yet.')
+
+        else:
+            raise ValueError('Either `config` or `simulation_path` have to be '
+                             'provided to compute the discrete kernel '
+                             'function.')
 
         # Normalize kernel
         self.kernel /= np.sum(self.kernel)

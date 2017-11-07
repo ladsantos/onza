@@ -11,6 +11,8 @@ import numpy as np
 from schwimmbad import MultiPool, SerialPool
 from itertools import product
 from astropy.convolution import convolve
+from scipy.interpolate import interp1d
+from scipy.stats import binned_statistic
 
 __all__ = ["Absorption", "Emission", "LineModel"]
 
@@ -224,16 +226,56 @@ class LineModel(object):
     """
 
     Args:
+
         wavelength:
+
         intrinsic_emission:
+
         absorption_profile:
-        instr_response:
+
+        instr_response (`onza.instrument` object): An object containing the
+            instrumental properties.
+
         ism_absorption:
+
     """
-    def __init__(self, wavelength, intrinsic_emission, absorption_profile=None,
-                 instr_response=None, ism_absorption=None):
+    def __init__(self, wavelength, intrinsic_emission, sub_bin_edges,
+                 absorption_profile=None, instr_response=None,
+                 ism_absorption=None):
         self.wavelength = wavelength
         self.emission = intrinsic_emission
         self.absorption = absorption_profile
         self.instr_res = instr_response
         self.ism_abs = ism_absorption
+
+        # Instantiating useful global variables
+        self.flux = None
+
+        # No instrumental response
+        if self.instr_res.response_mode is None:
+            flux_template = self.emission
+
+        # Convolution with the instrumental LSF. Spectrum has constant
+        # resolution; kernel is defined at the resolution of the reference
+        # spectrum and must be applied to it.
+        elif self.instr_res.response_mode == 'LSF':
+            flux_template = convolve(self.emission, self.instr_res.kernel,
+                                     boundary='extend')
+            # Interpolate from the reference table of wavelengths to the
+            # user-specified wavelengths
+            f = interp1d(self.instr_res.wavelength, flux_template)
+            flux_template = f(self.wavelength)
+
+        else:
+            raise NotImplementedError("Instrumental response modes other than "
+                                      "'LSF' are not implemented yet.")
+
+        # Averaging the flux on the instrumental table:
+        # The number of photons received in an instrumental bin is the integral
+        # of the flux over the spectral width of the bin.
+        # It is also the total number of photons received over the spectral
+        # width of each sub-bin in the bin.
+        # We use `binned_statistic` to calculate the mean in each instrumental
+        # bin, providing the edges of the bins (left & right).
+        self.flux = binned_statistic(self.wavelength, flux_template,
+                                     statistic='mean', bins=sub_bin_edges)
