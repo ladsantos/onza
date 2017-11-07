@@ -101,7 +101,7 @@ class Grid(object):
         self.grid = self.grid.clip(min=0.0)
 
     # Draw a cloud of pseudo-particles in the grid
-    def draw_cloud(self, density_map):
+    def draw_cloud(self, density_map=None, xy_positions=None):
         """
 
         Args:
@@ -110,7 +110,17 @@ class Grid(object):
         Returns:
 
         """
-        self.cloud = density_map
+        if density_map is not None:
+            self.cloud = density_map
+        elif xy_positions is not None:
+            pixels = np.arange(0, self.grid_size + 1)
+            self.cloud, hist_bins = np.histogramdd(sample=xy_positions.T,
+                                                   bins=[pixels, pixels])
+            self.cloud += 1  # To avoid zero values
+            self.cloud = self.cloud.T
+        else:
+            raise ValueError('Either `density_map` or `xy_positions` has to be '
+                             'provided.')
 
     # Compute a cell grid
     def draw_cells(self, cell_size=10, px_physical_area=40680159.61):
@@ -166,6 +176,7 @@ class Grid(object):
 
         plt.axis('off')
         plt.tight_layout()
+        plt.gca().invert_yaxis()
         if output_file is None:
             plt.show()
         else:
