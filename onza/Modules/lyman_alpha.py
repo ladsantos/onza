@@ -12,7 +12,6 @@ from schwimmbad import MultiPool, SerialPool
 from itertools import product
 from astropy.convolution import convolve
 from scipy.interpolate import interp1d
-from scipy.stats import binned_statistic
 
 __all__ = ["Absorption", "Emission", "LineModel"]
 
@@ -217,8 +216,27 @@ class Absorption(object):
 
 # The Lyman-alpha emission class
 class Emission(object):
+    """
+
+    """
     def __init__(self):
-        raise NotImplementedError()
+        self.wavelength = None
+        self.flux = None
+
+    def interpolate_from(self, file, to_wavelengths):
+        """
+
+        Args:
+            file:
+            to_wavelengths:
+
+        Returns:
+
+        """
+        em_data = np.loadtxt(file)
+        f = interp1d(em_data[:, 0], em_data[:, 1])
+        self.wavelength = to_wavelengths
+        self.flux = f(self.wavelength)
 
 
 # The Lyman-alpha line model
@@ -239,7 +257,7 @@ class LineModel(object):
         ism_absorption:
 
     """
-    def __init__(self, wavelength, intrinsic_emission, sub_bin_edges,
+    def __init__(self, wavelength, intrinsic_emission, sub_bin_edges=None,
                  absorption_profile=None, instr_response=None,
                  ism_absorption=None):
         self.wavelength = wavelength
@@ -250,32 +268,35 @@ class LineModel(object):
 
         # Instantiating useful global variables
         self.flux = None
+        self.lambda_0 = 1.2156702E3  # Angstrom
+
+        # Multiply by absorption profile if it was provided
+        if self.absorption is not None:
+            self.flux = self.emission * self.absorption
+        else:
+            self.flux = self.emission
+
+        # Multiply by ISM absorption if it was provided
+        if self.ism_abs is not None:
+            self.flux *= self.ism_abs
+        else:
+            pass
 
         # No instrumental response
         if self.instr_res.response_mode is None:
-            flux_template = self.emission
+            pass
 
         # Convolution with the instrumental LSF. Spectrum has constant
-        # resolution; kernel is defined at the resolution of the reference
-        # spectrum and must be applied to it.
+        # resolution; kernel has its own resolution and sampling (which has to
+        # be finer than the spectrum's resolution), thus it needs to be
+        # interpolated to the spectrum resolution before convolution.
         elif self.instr_res.response_mode == 'LSF':
-            flux_template = convolve(self.emission, self.instr_res.kernel,
-                                     boundary='extend')
-            # Interpolate from the reference table of wavelengths to the
-            # user-specified wavelengths
-            f = interp1d(self.instr_res.wavelength, flux_template)
-            flux_template = f(self.wavelength)
+            kernel_interp = np.interp(self.wavelength,
+                                      self.instr_res.wavelength + self.lambda_0,
+                                      self.instr_res.kernel)
+            self.flux = convolve(self.flux, kernel_interp,
+                                 boundary='extend')
 
         else:
             raise NotImplementedError("Instrumental response modes other than "
                                       "'LSF' are not implemented yet.")
-
-        # Averaging the flux on the instrumental table:
-        # The number of photons received in an instrumental bin is the integral
-        # of the flux over the spectral width of the bin.
-        # It is also the total number of photons received over the spectral
-        # width of each sub-bin in the bin.
-        # We use `binned_statistic` to calculate the mean in each instrumental
-        # bin, providing the edges of the bins (left & right).
-        self.flux = binned_statistic(self.wavelength, flux_template,
-                                     statistic='mean', bins=sub_bin_edges)
