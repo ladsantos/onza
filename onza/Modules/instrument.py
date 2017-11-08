@@ -9,25 +9,27 @@ lines.
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 import numpy as np
+from scipy.integrate import simps
 
 
 # The Hubble STIS instrument class
 class HubbleSTIS(object):
     """
 
-    """
-    def __init__(self, resolution, config=None, simulation_path=None):
-        """
+    NOTE: All values are in angstroms.
 
-        Args:
-            resolution: Resolution of the band spectrum
-            config:
-            simulation_path:
-        """
+    Args:
+        resolution: Resolution of the band spectrum
+        config:
+        simulation_path:
+    """
+    def __init__(self, resolution, config=None, simulation_path=None,
+                 wavelength_range=None):
         # LSF = Line Spread Function
         self.config = config
         self.resolution = resolution
         self.sim_path = simulation_path
+        self.wv_range = wavelength_range
 
         # Instantiating useful global variables
         self.wavelength = None
@@ -55,7 +57,7 @@ class HubbleSTIS(object):
 
         # HD189_2011 configuration
         elif self.config == 'STIS_HI_HD189_2011':
-            self.resp_mode='LSF'
+            self.response_mode='LSF'
             self.kernel_mode='double_gaussian'
             self.coeff_LSF=0.9456
             self.LSF_core=0.0665
@@ -65,7 +67,7 @@ class HubbleSTIS(object):
 
         # HD209 configuration
         elif self.config == 'STIS_HI_HD209':
-            self.resp_mode = 'LSF'
+            self.response_mode = 'LSF'
             self.kernel_mode = 'double_gaussian'
             self.coeff_LSF = 0.51785155
             self.LSF_core = 0.094208
@@ -75,7 +77,7 @@ class HubbleSTIS(object):
 
         # GJ436 configuration 0
         elif self.config == 'GJ436_HI_0':
-            self.resp_mode = 'LSF'
+            self.response_mode = 'LSF'
             self.kernel_mode = 'single_gaussian'
             self.fwhm_LSF = 0.07652675
             self.hrange_LSF = 0.284463523
@@ -83,7 +85,7 @@ class HubbleSTIS(object):
 
         # GJ436 configuration 2
         elif self.config == 'GJ436_HI_2':
-            self.resp_mode = 'LSF'
+            self.response_mode = 'LSF'
             self.kernel_mode = 'single_gaussian'
             self.fwhm_LSF = 0.05174745
             self.hrange_LSF = 0.192322867
@@ -91,7 +93,7 @@ class HubbleSTIS(object):
 
         # GJ436 configuration 3
         elif self.config == 'GJ436_HI_3':
-            self.resp_mode = 'LSF'
+            self.response_mode = 'LSF'
             self.kernel_mode = 'single_gaussian'
             self.fwhm_LSF = 0.06670499
             self.hrange_LSF = 0.247939299
@@ -106,7 +108,7 @@ class HubbleSTIS(object):
 
         # HD977658 configuration
         elif self.config == 'HD97658_HI_23':
-            self.resp_mode = 'LSF'
+            self.response_mode = 'LSF'
             self.kernel_mode = 'double_gaussian'
             self.instrument_resolution = 0.0533
             self.coeff_LSF = 0.933
@@ -116,7 +118,7 @@ class HubbleSTIS(object):
 
         # TRAPPIST1 configuration
         elif self.config == 'TRAPPIST1_HI':
-            self.resp_mode = 'LSF'
+            self.response_mode = 'LSF'
             self.kernel_mode = 'double_gaussian'
             self.instrument_resolution = 0.0533
             self.coeff_LSF = 0.935946
@@ -139,7 +141,10 @@ class HubbleSTIS(object):
         """
         # Half number of pixels in the kernel table at the resolution of the
         # band spectrum
-        half_number = int(self.hrange_LSF / self.resolution) + 1
+        if self.wv_range is None:
+            half_number = int(self.hrange_LSF / self.resolution) + 1
+        else:
+            half_number = int(self.wv_range / self.resolution) + 1
 
         # Centered spectral table with same pixel widths as the band spectrum
         # the kernel is associated to
@@ -171,4 +176,4 @@ class HubbleSTIS(object):
                              'function.')
 
         # Normalize kernel
-        self.kernel /= np.sum(self.kernel)
+        self.kernel /= simps(self.kernel, self.wavelength)
