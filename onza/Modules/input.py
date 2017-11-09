@@ -139,3 +139,12 @@ class DensityMap(_OnzaInput):
         # Computing the density cube
         self.density = np.array([vk * self.map_coarse * self.res_element
                                  for vk in self.vel_dist]) / self.cell_area
+
+
+# Use simulations from the EVE (Evaporating Exoplanets) code as input for `onza`
+class EveSimulation(object):
+    """
+
+    """
+    def __init__(self):
+        raise NotImplementedError()

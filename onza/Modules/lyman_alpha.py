@@ -11,7 +11,6 @@ import numpy as np
 from schwimmbad import MultiPool, SerialPool
 from itertools import product
 from astropy.convolution import convolve
-from scipy.interpolate import interp1d
 
 __all__ = ["Absorption", "Emission", "LineModel"]
 
@@ -28,6 +27,10 @@ class Absorption(object):
 
         density_cube (`input` object): Three-dimensional map of densities
             in spatial and velocity dimensions.
+
+        flux (`numpy.array`, optional): The initial flux to be multiplied by
+            the absorption profile. If not specified, it is considered flat and
+            with a value of 1.0. Default is not specified.
     """
     def __init__(self, transit_grid, density_cube, flux=None):
 
@@ -128,9 +131,19 @@ class Absorption(object):
     # Compute absorption index for a single Doppler shift bin and a single cell
     def _compute_abs(self, indexes):
         """
+        Compute the absorption coefficient for a specific Doppler shift and
+        cell.
+
+        Args:
+
+            indexes (sequence): Three indexes in the order of velocity bin, cell
+                bin in the horizontal direction and cell bin in the vertical
+                direction.
 
         Returns:
 
+            coeff (`float`): Absorption coefficient in a specific cell and a
+                specific Doppler shift bin.
         """
         i = indexes[1]
         j = indexes[2]
@@ -141,12 +154,12 @@ class Absorption(object):
     # Compute absorption using single-process or multiprocessing
     def compute_profile(self, multiprocessing=False):
         """
+        Compute the wavelength-dependent absorption coefficient.
 
         Args:
-            multiprocessing
 
-        Returns:
-
+            multiprocessing (`bool`): If `True`, utilize CPU parallelization. If
+                `False`, use regular serial processing. Default is `False`.
         """
         k = list(range(len(self.doppler_shift)))
         cells = list(range(len(self.transit.cell_bin) - 1))
@@ -168,9 +181,14 @@ class Absorption(object):
     # New way to compute the absorption profile
     def fast_profile(self):
         """
+        Compute the wavelength-dependent absorption profile without resorting
+        to any loops or list-comprehension, which greatly cuts the computation
+        time and does not require parallelization.
 
-        Returns:
-
+        This optimization is possible owing to a series of somewhat complicated
+        `numpy.array` manipulations, which is difficult to read but allows the
+        use of pre-compiled computation routines. For a more comprehensive
+        implementation, see `compute_profile`.
         """
         n = len(self.doppler_shift)
         m = len(self.cube.density[0])
@@ -217,49 +235,61 @@ class Absorption(object):
 # The Lyman-alpha emission class
 class Emission(object):
     """
-
+    Emission line object. This class is not fully implemented yet. At the
+    moment, it can be used to interpolate an emission line data from a text
+    file.
     """
     def __init__(self):
         self.wavelength = None
         self.flux = None
 
+    # Compute an emission line profile from a text file
     def interpolate_from(self, file, to_wavelengths):
         """
+        Read data from a text file and interpolate the emission line to a
+        `numpy.array` of wavelengths.
 
         Args:
-            file:
-            to_wavelengths:
 
-        Returns:
+            file (`str`): Path to the text file containing the emission line
+                data. The first column must be the wavelengths, and the second
+                column must be the flux.
 
+            to_wavelengths (`numpy.array`): Sequence of wavelengths to which
+                you want to interpolate to.
         """
         em_data = np.loadtxt(file)
-        f = interp1d(em_data[:, 0], em_data[:, 1])
         self.wavelength = to_wavelengths
-        self.flux = f(self.wavelength)
+        self.flux = np.interp(self.wavelength, em_data[:, 0], em_data[:, 1])
 
 
 # The Lyman-alpha line model
 class LineModel(object):
     """
+    Compute a full model of a Lyman-alpha line using as input an intrinsic
+    emission line, an absorption profile, the instrumental response and the ISM
+    absorption profile.
 
     Args:
 
-        wavelength:
+        wavelength (`numpy.array`): Sequence of wavelengths where the line will
+            be computed. The range of wavelengths must be narrower than the one
+            from the instrumental response.
 
-        intrinsic_emission:
+        intrinsic_emission (`numpy.array`): The intrinsic emission line
+            computed at the points of the `wavelength` array.
 
-        absorption_profile:
+        absorption_profile (`numpy.array`): The absorption profile computed at
+            the points of the `wavelength` array.
 
         instr_response (`onza.instrument` object): An object containing the
             instrumental properties.
 
-        ism_absorption:
-
+        ism_absorption (`numpy.array`): The ISM absorption profile computed at
+            the points of the `wavelength` array.
     """
-    def __init__(self, wavelength, intrinsic_emission, sub_bin_edges=None,
-                 absorption_profile=None, instr_response=None,
-                 ism_absorption=None):
+    def __init__(self, wavelength, intrinsic_emission, absorption_profile=None,
+                 instr_response=None, ism_absorption=None):
         self.wavelength = wavelength
         self.emission = intrinsic_emission
         self.absorption = absorption_profile
