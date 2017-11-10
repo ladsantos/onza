@@ -17,14 +17,21 @@ __all__ = ["ParticleEnsemble", "DensityMap"]
 # The general onza-input parent class
 class _OnzaInput(object):
     """
+    Generalized `onza` input parent class.
 
     Args:
-        cell_bin:
 
-        vel_bin:
+        cell_bin (`numpy.array`): The bins of the cell map.
 
-        cell_area:
+        vel_bin (`numpy.array`): Array containing the bins of Doppler shift
+            velocities in which to compute the spectrum.
 
+        cell_area (`numpy.array` or `None`, optional): 2-d array containing the
+            area of each cell. If `None`, it will be automatically computed from
+            `cell_bin`. It must have dimensions (N-1, N-1), where N is the
+            length of `cell_bin`. Default value is `None`.
+
+        px_physical_area (`float`): Physical area of a pixel, in km ** 2.
     """
     def __init__(self, cell_bin, vel_bin, cell_area=None,
                  px_physical_area=40680159.61):
@@ -79,7 +86,8 @@ class ParticleEnsemble(_OnzaInput):
 
         cell_bin (array-like): The bins of the cell map.
 
-        vel_bin (array-like): The bins of the distribution of velocities.
+        vel_bin (array-like): Array containing the bins of Doppler shift
+            velocities in which to compute the spectrum.
 
         cell_area (`numpy.array` or `None`, optional): 2-d array containing the
             area of each cell. If `None`, it will be automatically computed from
@@ -88,7 +96,6 @@ class ParticleEnsemble(_OnzaInput):
 
         atoms_per_particle (`float`, optional): Number of atoms per
             pseudo-particle. Default value is 1E9.
-
     """
     def __init__(self, positions, velocities, cell_bin, vel_bin, cell_area=None,
                  atoms_per_particle=1E9):
@@ -112,14 +119,26 @@ class ParticleEnsemble(_OnzaInput):
 # velocities
 class DensityMap(_OnzaInput):
     """
+    Compute a density cube using as input a 2-d number density of particles map
+    and a fixed distribution of velocities of particles in the line of sight.
 
     Args:
-        density_map:
-        vel_bin:
-        vel_dist:
-        cell_bin:
-        cell_area:
 
+        density_map (`numpy.array`): 2-d array containing the number densities
+            of particles inside a pixel.
+
+        vel_bin (`numpy.array`): Array containing the bins of Doppler shift
+            velocities in which to compute the spectrum.
+
+        vel_dist (`numpy.array`): Distribution of velocities of particles in
+            the direction of the line of sight.
+
+        cell_bin (array-like): The bins of the cell map.
+
+        cell_area (`numpy.array` or `None`, optional): 2-d array containing the
+            area of each cell. If `None`, it will be automatically computed from
+            `cell_bin`. It must have dimensions (N-1, N-1), where N is the
+            length of `cell_bin`. Default value is `None`.
     """
     def __init__(self, density_map, vel_bin, vel_dist, cell_bin,
                  cell_area=None):
