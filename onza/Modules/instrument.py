@@ -15,13 +15,28 @@ from scipy.integrate import simps
 # The Hubble STIS instrument class
 class HubbleSTIS(object):
     """
-
-    NOTE: All values are in angstroms.
+    The Hubble STIS spectrograph instrumental configuration class.
 
     Args:
-        resolution: Resolution of the band spectrum
-        config:
-        simulation_path:
+
+        resolution (`float`): Target spectral resolution to use in the
+            computation of the instrumental response.
+
+        config (`str`, optional): String specifying the configuration to be used
+            in the computation of the instrumental response. Available options
+            are: `'STIS_HI_HD189_2010'`, `'STIS_HI_HD189_2011'`,
+            `'STIS_HI_HD209'`, `'GJ436_HI_0'`, `'GJ436_HI_2'`, `'GJ436_HI_3'`,
+            `'Kepler444_HI'`, `'HD97658_HI_23'`, and `'TRAPPIST1_HI'`. If not
+            specified, no instrumental response function is set.
+
+        simulation_path (`str`, optional): In case the user wants to use a
+            specific configuration instead of the ones available for the
+            variable `config`, the user can input a tabulated line spread
+            function here. This option is not implemented yet.
+
+        wavelength_range (sequence, optional): Wavelength range in which to
+            compute the instrumental response. If not defined, the instrumental
+            response is computed according to the specified configuration.
     """
     def __init__(self, resolution, config=None, simulation_path=None,
                  wavelength_range=None):
@@ -135,9 +150,7 @@ class HubbleSTIS(object):
     # Compute the discrete kernel function
     def compute_kernel(self):
         """
-
-        Returns:
-
+        Computes the kernel of the instrumental response.
         """
         # Half number of pixels in the kernel table at the resolution of the
         # band spectrum
