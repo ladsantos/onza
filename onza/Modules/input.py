@@ -8,6 +8,7 @@ This module computes input data for the lyman_alpha module.
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 import numpy as np
+import astropy.units as u
 from itertools import product
 
 
@@ -164,6 +165,38 @@ class DensityMap(_OnzaInput):
 class EveSimulation(object):
     """
 
+    Args:
+        part_position:
+        part_velocity:
+        planet_position:
+        planet_velocity:
+        misc_data:
+        planet_star_ratio:
     """
-    def __init__(self):
-        raise NotImplementedError()
+    def __init__(self, part_position, part_velocity, planet_position,
+                 planet_velocity, misc_data, planet_star_ratio):
+        self.part_pos = part_position
+        self.part_vel = part_velocity
+        self.pl_pos = planet_position
+        self.pl_vel = planet_velocity
+        self.misc = np.load(misc_data)
+        self.n_atoms = self.misc['dico_simu'][0]['n_atom_per_part']
+        self.pl_rad = planet_star_ratio
+
+        # Roll the first line to last because EVE outputs x as line if sight,
+        # which is z in normal convention
+        self.part_pos = np.roll(self.part_pos, 2, axis=0)
+        self.part_vel = np.roll(self.part_vel, 2, axis=0)
+        self.pl_pos = np.roll(self.pl_pos, 2)
+        self.pl_vel = np.roll(self.pl_vel, 2)
+
+        # Also, velocities in the z-axis have to have their signals flipped
+        # because EVE considers "towards us" as positive instead of negative.
+        self.part_vel[2] *= (-1)
+        self.pl_vel[2] *= (-1)
+
+        # Convert units
+        self.pl_pos = ((self.pl_pos * u.AU).to(u.solRad)).value
+        self.pl_vel = ((self.pl_vel * u.AU / u.yr).to(u.km / u.s)).value
+        self.part_pos = ((self.part_pos * u.AU).to(u.solRad)).value
+        self.part_vel = ((self.part_vel * u.AU / u.yr).to(u.km / u.s)).value
