@@ -35,6 +35,7 @@ class Grid(object):
         self.cloud = None
         self.cell_bin = None
         self.cell_area = None
+        self.cell_volume = None
 
     # Draw a general disk
     def _draw_disk(self, center, radius, value=1.0):
@@ -139,10 +140,12 @@ class Grid(object):
         if self.cell_bin[-1] < self.grid_size - 1:
             self.cell_bin = np.append(self.cell_bin, self.grid_size - 1)
 
-        # Computing the areas of each cell, in pixels
+        # Computing the areas and volumes of each cell, in pixels
         self.cell_area = []
+        self.cell_volume = []
         for i in range(len(self.cell_bin) - 1):
             area = []
+            volume = []
             for j in range(len(self.cell_bin) - 1):
                 area.append((self.cell_bin[i + 1] - self.cell_bin[i]) *
                             (self.cell_bin[j + 1] - self.cell_bin[j]))

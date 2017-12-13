@@ -8,7 +8,6 @@ This module computes input data for the lyman_alpha module.
 from __future__ import (division, print_function, absolute_import,
                         unicode_literals)
 import numpy as np
-import astropy.units as u
 from itertools import product
 
 
@@ -34,11 +33,12 @@ class _OnzaInput(object):
 
         px_physical_area (`float`): Physical area of a pixel, in km ** 2.
     """
-    def __init__(self, cell_bin, vel_bin, cell_area=None,
+    def __init__(self, cell_bin, vel_bin, cell_area=None, cell_volume=None,
                  px_physical_area=40680159.61):
 
         self.cell_bin = cell_bin
         self.vel_bin = vel_bin
+        self.cell_volume = cell_volume
 
         # Check if `cell_area` was provided
         if cell_area is not None:
@@ -99,9 +99,10 @@ class ParticleEnsemble(_OnzaInput):
             pseudo-particle. Default value is 1E9.
     """
     def __init__(self, positions, velocities, cell_bin, vel_bin, cell_area=None,
-                 atoms_per_particle=1E9):
+                 cell_volume=None, atoms_per_particle=1E9):
 
-        super(ParticleEnsemble, self).__init__(cell_bin, vel_bin, cell_area)
+        super(ParticleEnsemble, self).__init__(cell_bin, vel_bin, cell_area,
+                                               cell_volume)
 
         self.pos = positions
         self.vel = velocities
@@ -114,6 +115,15 @@ class ParticleEnsemble(_OnzaInput):
                                                          self.cell_bin])
         self.hist *= atoms_per_particle
         self.density = self.hist / self.cell_area
+
+        # The volume density can be useful sometimes
+        if self.cell_volume is not None:
+            hist_vol, hist_vol_bins = np.histogramdd(sample=self.pos,
+                                                     bins=[self.cell_bin,
+                                                           self.cell_bin,
+                                                           self.cell_bin])
+            hist_vol *= atoms_per_particle
+            self.volume_density = hist_vol / self.cell_volume
 
 
 # Compute a density cube from a 2-d density map and a fixed distribution of

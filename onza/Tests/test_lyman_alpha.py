@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as plc
 import scipy.interpolate as si
 import time
 from onza.Modules import transit, input, lyman_alpha
@@ -7,12 +8,22 @@ from onza.Modules import transit, input, lyman_alpha
 # import density map
 dmap = np.loadtxt('../../dump/model_earthRad-2d.dat.gz')
 
-# GJ 436
-grid = transit.Grid(size=1001)
-grid.draw_star([500, 500], 480)
-grid.draw_planet([500, 500], 10)
-grid.draw_cells(100)
-dmap = dmap[105:1106, 105:1106]
+# Sun
+grid_size = 2201
+grid = transit.Grid(size=grid_size)
+grid.draw_star([1100, 1100], 1090)
+grid.draw_planet([1100, 1100], 10)
+grid.draw_cells(200)
+
+# dmap is smaller than the grid, so we have to expand it
+shape = np.shape(dmap)
+add_size = (grid_size - shape[0]) // 2
+conc_uplow = np.ones([add_size, shape[0]], float)
+conc_sides = np.ones([add_size * 2 + shape[0], add_size], float)
+dmap = np.concatenate((conc_uplow, dmap, conc_uplow), axis=0)
+dmap = np.concatenate((conc_sides, dmap, conc_sides), axis=1)
+
+#dmap = dmap[105:1106, 105:1106]
 grid.draw_cloud(dmap)
 
 # Setting up other important variables
@@ -67,8 +78,10 @@ def test_map():
     ab.flux = np.copy(em)
 
     ab.fast_profile()
+    plt.plot(ab.doppler_shift, ab.abs_profile)
+    plt.show()
 
 
 if __name__ == '__main__':
     test_particle()
-    test_map()
+    #test_map()

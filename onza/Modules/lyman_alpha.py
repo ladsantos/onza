@@ -288,16 +288,35 @@ class LineModel(object):
         ism_absorption (`numpy.array`): The ISM absorption profile computed at
             the points of the `wavelength` array.
     """
-    def __init__(self, wavelength, intrinsic_emission, absorption_profile=None,
-                 instr_response=None, ism_absorption=None):
-        self.wavelength = wavelength
+    def __init__(self, intrinsic_emission, wavelength=None, doppler_shift=None,
+                 absorption_profile=None, instr_response=None,
+                 ism_absorption=None):
         self.emission = intrinsic_emission
+        self.doppler_shift = doppler_shift
         self.absorption = absorption_profile
         self.instr_res = instr_response
         self.ism_abs = ism_absorption
+        self.lambda_0 = 1215.6702       # Angstrom
+        self.c = 299792.458             # km / s
+
+        if wavelength is not None and doppler_shift is None:
+            self.wavelength = wavelength
+            self.doppler_shift = (self.wavelength - self.lambda_0) * \
+                self.c / self.lambda_0  # km / s
+        elif doppler_shift is not None and wavelength is None:
+            self.doppler_shift = doppler_shift
+            self.wavelength = (self.doppler_shift / self.c * self.lambda_0 +
+                               self.lambda_0) * 1E13  # Angstrom
+        elif doppler_shift is not None and wavelength is not None:
+            self.wavelength = wavelength
+            self.doppler_shift = doppler_shift
+        else:
+            raise ValueError('Either ``wavelength`` or ``doppler_shift`` have '
+                             'to be provided.')
 
         # Instantiating useful global variables
         self.flux = None
+        self.emission_conv = None
         self.lambda_0 = 1.2156702E3  # Angstrom
 
         # Multiply by absorption profile if it was provided
@@ -326,6 +345,8 @@ class LineModel(object):
                                       self.instr_res.kernel)
             self.flux = convolve(self.flux, kernel_interp,
                                  boundary='extend')
+            self.emission_conv = convolve(self.emission, kernel_interp,
+                                          boundary='extend')
 
         else:
             raise NotImplementedError("Instrumental response modes other than "
