@@ -375,8 +375,12 @@ class LineModel(object):
         Returns:
 
             flux_interp (`numpy.array`): The "interpolated" flux array.
+
+            emission_interp (`numpy.array`): The "interpolated" emission
+                (without absorption) array.
         """
         flux_interp = []
+        emission_interp = []
 
         if wavelength_bins is not None:
             for i in range(len(wavelength_bins) - 1):
@@ -385,9 +389,12 @@ class LineModel(object):
                 ind_0 = nearest_index(self.wavelength, wv_0)
                 ind_1 = nearest_index(self.wavelength, wv_1)
                 delta_wv = wv_1 - wv_0
-                flux_bin = simps(self.flux[ind_0:ind_1],
-                                 self.wavelength[ind_0:ind_1])
+                flux_bin = simps(self.flux[ind_0:ind_1 + 1],
+                                 self.wavelength[ind_0:ind_1 + 1])
+                emission_bin = simps(self.emission_conv[ind_0:ind_1 + 1],
+                                     self.wavelength[ind_0:ind_1 + 1])
                 flux_interp.append(flux_bin / delta_wv)
+                emission_interp.append(emission_bin / delta_wv)
 
         elif doppler_shift_bins is not None:
             for i in range(len(doppler_shift_bins) - 1):
@@ -398,11 +405,15 @@ class LineModel(object):
                 delta_ds = ds_1 - ds_0
                 flux_bin = simps(self.flux[ind_0:ind_1 + 1],
                                  self.doppler_shift[ind_0:ind_1 + 1])
+                emission_bin = simps(self.emission_conv[ind_0:ind_1 + 1],
+                                     self.doppler_shift[ind_0:ind_1 + 1])
                 flux_interp.append(flux_bin / delta_ds)
+                emission_interp.append(emission_bin / delta_ds)
 
         else:
             raise ValueError('Either the bins of wavelength or Doppler shift '
                              'must be provided.')
 
         flux_interp = np.array(flux_interp)
-        return flux_interp
+        emission_interp = np.array(emission_interp)
+        return flux_interp, emission_interp
