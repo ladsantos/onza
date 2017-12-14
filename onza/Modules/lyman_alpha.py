@@ -11,6 +11,8 @@ import numpy as np
 from schwimmbad import MultiPool, SerialPool
 from itertools import product
 from astropy.convolution import convolve
+from onza.Modules.tools import nearest_index
+from scipy.integrate import simps
 
 __all__ = ["Absorption", "Emission", "LineModel"]
 
@@ -351,3 +353,56 @@ class LineModel(object):
         else:
             raise NotImplementedError("Instrumental response modes other than "
                                       "'LSF' are not implemented yet.")
+
+    # Interpolate the flux to a specific set of bins
+    def interpolate_to(self, wavelength_bins=None, doppler_shift_bins=None):
+        """
+        This interpolation is not exactly a traditional interpolation. Intead
+        of simply using ``numpy.interp`` or ``scipy.interpolate``, this method
+        integrates the flux inside each bin of wavelength or Doppler shift and
+        divides it by the width of the bin. This is more realistic than simply
+        interpolating the flux to an array of wavelengths or Doppler shifts with
+        a lower resolution.
+
+        Args:
+
+            wavelength_bins (`numpy.array`): Bins of wavelength. If not
+                provided, than `doppler_shift_bins` must be provided.
+
+            doppler_shift_bins (`numpy.array`): Bins of Doppler shifts. If not
+                provided, than `wavelength_bins` must be provided.
+
+        Returns:
+
+            flux_interp (`numpy.array`): The "interpolated" flux array.
+        """
+        flux_interp = []
+
+        if wavelength_bins is not None:
+            for i in range(len(wavelength_bins) - 1):
+                wv_0 = wavelength_bins[i]
+                wv_1 = wavelength_bins[i + 1]
+                ind_0 = nearest_index(self.wavelength, wv_0)
+                ind_1 = nearest_index(self.wavelength, wv_1)
+                delta_wv = wv_1 - wv_0
+                flux_bin = simps(self.flux[ind_0:ind_1],
+                                 self.wavelength[ind_0:ind_1])
+                flux_interp.append(flux_bin / delta_wv)
+
+        elif doppler_shift_bins is not None:
+            for i in range(len(doppler_shift_bins) - 1):
+                ds_0 = doppler_shift_bins[i]
+                ds_1 = doppler_shift_bins[i + 1]
+                ind_0 = nearest_index(self.doppler_shift, ds_0)
+                ind_1 = nearest_index(self.doppler_shift, ds_1)
+                delta_ds = ds_1 - ds_0
+                flux_bin = simps(self.flux[ind_0:ind_1 + 1],
+                                 self.doppler_shift[ind_0:ind_1 + 1])
+                flux_interp.append(flux_bin / delta_ds)
+
+        else:
+            raise ValueError('Either the bins of wavelength or Doppler shift '
+                             'must be provided.')
+
+        flux_interp = np.array(flux_interp)
+        return flux_interp
