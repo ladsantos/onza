@@ -131,7 +131,7 @@ if __name__ == "__main__":
                                                     (j - 50) ** 2 / 10 ** 2))
     dens = DensityMap(test_array)
     dens.interpolate(factor=2)
-    dens.extrapolate(10, 1.0, log_space=True)
+    dens.extrapolate(10, 0.0, log_space=False)
     test_array = dens.result
     norm = c.LogNorm()
     plt.imshow(test_array, norm=norm)

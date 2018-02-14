@@ -325,7 +325,7 @@ class LineModel(object):
         if self.absorption is not None:
             self.flux = self.emission * self.absorption
         else:
-            self.flux = self.emission
+            self.flux = np.copy(self.emission)
 
         # Multiply by ISM absorption if it was provided
         if self.ism_abs is not None:
@@ -357,7 +357,7 @@ class LineModel(object):
     # Interpolate the flux to a specific set of bins
     def interpolate_to(self, wavelength_bins=None, doppler_shift_bins=None):
         """
-        This interpolation is not exactly a traditional interpolation. Intead
+        This interpolation is not exactly a traditional interpolation. Instead
         of simply using ``numpy.interp`` or ``scipy.interpolate``, this method
         integrates the flux inside each bin of wavelength or Doppler shift and
         divides it by the width of the bin. This is more realistic than simply

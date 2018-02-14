@@ -153,7 +153,8 @@ class Grid(object):
         self.cell_area = np.array(self.cell_area) * px_physical_area
 
     # Plot transit just for fun
-    def plot_transit(self, plot_cloud=True, plot_cells=True, output_file=None):
+    def plot_transit(self, plot_cloud=True, plot_cells=True, output_file=None,
+                     colorbar=False, densities_factor=1.0, colorbar_label=""):
         """
 
         Args:
@@ -175,7 +176,11 @@ class Grid(object):
         # Check if cloud has been drawn and plot it
         if self.cloud is not None and plot_cloud is True:
             norm = plc.LogNorm()
-            plt.imshow(self.grid / self.cloud, norm=norm)
+            plt.imshow(self.grid * self.cloud * self.norm * densities_factor,
+                       norm=norm, cmap='viridis_r')
+
+        if colorbar is True:
+            plt.colorbar(label=colorbar_label)
 
         plt.axis('off')
         plt.tight_layout()
