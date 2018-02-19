@@ -39,25 +39,31 @@ class HubbleSTIS(object):
             response is computed according to the specified configuration.
     """
     def __init__(self, resolution, config=None, simulation_path=None,
-                 wavelength_range=None):
+                 wavelength_range=None, central_wavelength=None,
+                 instrument_resolving_power=None):
         # LSF = Line Spread Function
         self.config = config
         self.resolution = resolution
         self.sim_path = simulation_path
         self.wv_range = wavelength_range
+        if central_wavelength is None:
+            self.w0 = 1215.6702
+        else:
+            self.w0 = central_wavelength
 
         # Instantiating useful global variables
         self.wavelength = None
         self.kernel = None
 
-        # Configuration not set
+        # If configuration is not set, assume single Gaussian
         if self.config is None:
-            self.response_mode = None
-            self.kernel_mode = None
+            self.response_mode = 'LSF'
+            self.kernel_mode = 'single_gaussian'
             self.coeff_LSF = None
             self.LSF_core = None
             self.LSF_wing = None
-            self.hrange_LSF = None
+            self.fwhm_LSF = self.w0 / instrument_resolving_power
+            self.hrange_LSF = 1.000
             self.instrument_resolution = None
 
         # HD189_2010 configuration
